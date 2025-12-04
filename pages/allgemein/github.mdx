@@ -1,0 +1,534 @@
+# Git – Die Dokumentation in einfacher Form
+
+> Git ist ein **Versionskontrollsystem**. Es speichert jeden Stand deines Projekts, sodass du jederzeit zurückspringen oder mit anderen zusammenarbeiten kannst.
+
+---
+
+## Wichtige Begriffe erklärt
+
+| Begriff | Bedeutung |
+|---------|-----------|
+| **Repository (Repo)** | Dein Projektordner mit Git-Tracking |
+| **Commit** | Ein gespeicherter Snapshot deines Projekts |
+| **Branch** | Ein paralleler Entwicklungszweig |
+| **Remote** | Der Server (z.B. GitHub) wo dein Code liegt |
+| **Origin** | Standardname für deinen Remote-Server |
+| **Main/Master** | Der Hauptbranch deines Projekts |
+| **Staging Area** | Warteschlange für den nächsten Commit |
+| **HEAD** | Zeigt auf deinen aktuellen Branch/Commit |
+| **Clone** | Kopie eines Remote-Repos auf deinen Rechner |
+| **Pull** | Änderungen vom Server holen |
+| **Push** | Änderungen zum Server schicken |
+| **Merge** | Zwei Branches zusammenführen |
+| **Conflict** | Wenn Git nicht weiß, welche Version richtig ist |
+
+---
+
+## Installation & Setup
+
+```bash
+# Git installieren (Windows)
+# Download: https://git-scm.com/download/win
+
+# Prüfen ob installiert
+git --version
+
+# Identität einrichten (einmalig)
+git config --global user.name "Dein Name"
+git config --global user.email "deine@email.de"
+
+# Einstellungen prüfen
+git config --list
+```
+
+---
+
+## Projekt starten
+
+### Neues Projekt mit Git
+
+```bash
+# In Projektordner wechseln
+cd mein-projekt
+
+# Git initialisieren
+git init
+
+# Erster Commit
+git add .
+git commit -m "Initial commit"
+```
+
+### Bestehendes Projekt von GitHub holen
+
+```bash
+# Repository klonen
+git clone https://github.com/username/repo-name.git
+
+# In den Ordner wechseln
+cd repo-name
+```
+
+---
+
+## Mit GitHub verbinden
+
+### Neues Repo auf GitHub erstellen
+
+1. GitHub.com → "New Repository"
+2. Namen eingeben
+3. **OHNE** README erstellen (wichtig bei bestehendem Projekt!)
+
+### Lokales Projekt verbinden
+
+```bash
+# Remote hinzufügen
+git remote add origin https://github.com/USERNAME/REPO.git
+
+# Hauptbranch auf main setzen
+git branch -M main
+
+# Hochpushen
+git push -u origin main
+```
+
+### Mit SSH (empfohlen)
+
+```bash
+# SSH Key generieren (einmalig)
+ssh-keygen -t ed25519 -C "deine@email.de"
+
+# Key anzeigen
+cat ~/.ssh/id_ed25519.pub
+
+# Diesen Key auf GitHub einfügen:
+# Settings → SSH and GPG Keys → New SSH Key
+
+# Remote mit SSH
+git remote add origin git@github.com:USERNAME/REPO.git
+```
+
+---
+
+## Der tägliche Workflow
+
+### Änderungen speichern
+
+```bash
+# Status prüfen (was hat sich geändert?)
+git status
+
+# Alle Änderungen zur Staging Area
+git add .
+
+# Nur bestimmte Datei
+git add datei.js
+
+# Commit erstellen
+git commit -m "Beschreibung der Änderung"
+
+# Zum Server pushen
+git push
+```
+
+### Änderungen vom Server holen
+
+```bash
+# Holen und automatisch mergen
+git pull
+
+# Nur holen ohne merge
+git fetch
+```
+
+---
+
+## Branches (Zweige)
+
+### Branch erstellen und wechseln
+
+```bash
+# Neuen Branch erstellen UND wechseln
+git checkout -b feature/mein-feature
+
+# Oder mit neuerem Befehl
+git switch -c feature/mein-feature
+
+# Nur erstellen ohne wechseln
+git branch feature/mein-feature
+```
+
+### Zwischen Branches wechseln
+
+```bash
+git checkout main
+git checkout feature/mein-feature
+
+# Oder
+git switch main
+git switch feature/mein-feature
+```
+
+### Branches anzeigen
+
+```bash
+# Lokale Branches
+git branch
+
+# Alle Branches (lokal + remote)
+git branch -a
+
+# Mit letztem Commit
+git branch -v
+```
+
+### Branch auf GitHub pushen
+
+```bash
+# Beim ersten Mal
+git push -u origin feature/mein-feature
+
+# Danach reicht
+git push
+```
+
+### Branch löschen
+
+```bash
+# Lokal löschen
+git branch -d feature/mein-feature
+
+# Lokal löschen (force, auch wenn nicht gemerged)
+git branch -D feature/mein-feature
+
+# Remote löschen
+git push origin --delete feature/mein-feature
+```
+
+---
+
+## Branches zusammenführen (Merge)
+
+### Feature in Main mergen
+
+```bash
+# Zu main wechseln
+git checkout main
+
+# Aktuellen Stand holen
+git pull
+
+# Feature-Branch mergen
+git merge feature/mein-feature
+
+# Pushen
+git push
+```
+
+### Pull Request (empfohlen)
+
+1. Branch auf GitHub pushen
+2. Auf GitHub: "Compare & Pull Request"
+3. Beschreibung schreiben
+4. "Create Pull Request"
+5. Review → "Merge Pull Request"
+
+---
+
+## Konflikte lösen
+
+### Wann passieren Konflikte?
+
+Wenn du und jemand anders die **gleiche Zeile** in der **gleichen Datei** geändert haben.
+
+### So sieht ein Konflikt aus
+
+```javascript
+<<<<<<< HEAD
+const name = "Deine Version";
+=======
+const name = "Andere Version";
+>>>>>>> feature-branch
+```
+
+### Konflikt lösen
+
+1. Öffne die Datei
+2. Entscheide welche Version richtig ist
+3. Lösch die Marker (`<<<<<<<`, `=======`, `>>>>>>>`)
+4. Speichern
+
+```javascript
+const name = "Die richtige Version";
+```
+
+5. Weiter committen:
+
+```bash
+git add .
+git commit -m "Konflikt gelöst"
+```
+
+---
+
+## Änderungen rückgängig machen
+
+### Datei aus Staging entfernen
+
+```bash
+# Eine Datei
+git restore --staged datei.js
+
+# Alle Dateien
+git restore --staged .
+```
+
+### Lokale Änderungen verwerfen
+
+```bash
+# Eine Datei zurücksetzen
+git restore datei.js
+
+# ALLE Änderungen verwerfen (VORSICHT!)
+git restore .
+```
+
+### Letzten Commit rückgängig
+
+```bash
+# Commit rückgängig, Änderungen behalten
+git reset --soft HEAD~1
+
+# Commit UND Änderungen rückgängig (VORSICHT!)
+git reset --hard HEAD~1
+```
+
+### Datei aus Git entfernen (aber lokal behalten)
+
+```bash
+git rm --cached datei.js
+```
+
+---
+
+## Nützliche Befehle
+
+### History anzeigen
+
+```bash
+# Commit-History
+git log
+
+# Kompakte Ansicht
+git log --oneline
+
+# Mit Graph
+git log --oneline --graph --all
+```
+
+### Unterschiede anzeigen
+
+```bash
+# Unstaged Änderungen
+git diff
+
+# Staged Änderungen
+git diff --staged
+
+# Zwischen Branches
+git diff main..feature/mein-feature
+```
+
+### Remote-Infos
+
+```bash
+# Remote URLs anzeigen
+git remote -v
+
+# Remote URL ändern
+git remote set-url origin neue-url
+
+# Remote entfernen
+git remote remove origin
+```
+
+---
+
+## Force Push (mit Vorsicht!)
+
+Überschreibt den Remote-Branch komplett mit deiner lokalen Version.
+
+```bash
+git push -f origin branch-name
+```
+
+**Wann benutzen:**
+- Nach einem Rebase
+- Wenn "unrelated histories" Fehler kommt
+- Wenn du SICHER bist, dass deine Version die richtige ist
+
+**Niemals auf `main` wenn andere mitarbeiten!**
+
+---
+
+## .gitignore
+
+Dateien die Git ignorieren soll:
+
+```bash
+# .gitignore Datei erstellen
+touch .gitignore
+```
+
+**Typischer Inhalt für Next.js:**
+
+```
+# Dependencies
+node_modules/
+
+# Build
+.next/
+out/
+build/
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+```
+
+---
+
+## Häufige Fehler & Lösungen
+
+### "fatal: not a git repository"
+
+Du bist nicht im richtigen Ordner.
+
+```bash
+# Prüfen wo du bist
+pwd
+
+# .git Ordner suchen
+ls -la
+# oder Windows:
+dir -Force
+```
+
+### "refusing to merge unrelated histories"
+
+Lokales Repo hat andere Historie als Remote.
+
+```bash
+# Option 1: Force Push
+git push -f origin branch-name
+
+# Option 2: Histories verbinden
+git pull origin main --allow-unrelated-histories
+```
+
+### "Your branch is ahead of origin"
+
+Du hast lokale Commits die nicht gepusht sind.
+
+```bash
+git push
+```
+
+### "Your branch is behind origin"
+
+Remote hat Commits die du nicht hast.
+
+```bash
+git pull
+```
+
+### "Please commit your changes or stash them"
+
+Du hast ungespeicherte Änderungen.
+
+```bash
+# Option 1: Committen
+git add .
+git commit -m "WIP"
+
+# Option 2: Temporär speichern
+git stash
+# ... andere Sachen machen ...
+git stash pop
+```
+
+### Port/Datei wird noch benutzt nach Branch-Wechsel
+
+```bash
+# Prozess finden (Windows)
+netstat -ano | findstr :3000
+
+# Prozess killen
+taskkill /PID 12345 /F
+```
+
+---
+
+## Cheat Sheet
+
+| Was du willst | Befehl |
+|---------------|--------|
+| Neues Repo | `git init` |
+| Repo klonen | `git clone url` |
+| Status | `git status` |
+| Alles stagen | `git add .` |
+| Commit | `git commit -m "msg"` |
+| Push | `git push` |
+| Pull | `git pull` |
+| Branch erstellen | `git checkout -b name` |
+| Branch wechseln | `git checkout name` |
+| Branch löschen | `git branch -d name` |
+| Merge | `git merge name` |
+| History | `git log --oneline` |
+| Diff | `git diff` |
+| Reset (soft) | `git reset --soft HEAD~1` |
+| Force Push | `git push -f origin name` |
+| Stash | `git stash` / `git stash pop` |
+
+---
+
+## Workflow-Beispiel: Neues Feature
+
+```bash
+# 1. Aktuellen main holen
+git checkout main
+git pull
+
+# 2. Feature-Branch erstellen
+git checkout -b feature/neues-feature
+
+# 3. Arbeiten...
+# ... code schreiben ...
+
+# 4. Änderungen committen
+git add .
+git commit -m "Feature: Beschreibung"
+
+# 5. Auf GitHub pushen
+git push -u origin feature/neues-feature
+
+# 6. Pull Request auf GitHub erstellen
+
+# 7. Nach Merge: Branch lokal löschen
+git checkout main
+git pull
+git branch -d feature/neues-feature
+```

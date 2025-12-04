@@ -1,11 +1,405 @@
-# Introduction
- 
-Welcome to Nextra! This is a basic docs template. You can use it as a starting point for your own project :)
+# Nextra Dokumentation – Conversion Junkies
 
-## What is Nextra?
+> Diese Dokumentation dient als Einführung und Referenz für die interne Wissensdatenbank von **Conversion Junkies**. Sie erklärt die Verwendung von Nextra, die Projektstruktur und bewährte Industriestandards.
 
-A **simple**, **powerful** and **flexible** site generation framework with everything you love from Next.js.
+---
 
-## Documentation
+## Was ist Nextra?
 
-The documentation is available at [https://nextra.site](https://nextra.site).
+Nextra ist ein **Documentation Framework** basierend auf Next.js. Es ermöglicht das Erstellen von Dokumentationen und Wissensdatenbanken mit einfachen Markdown/MDX-Dateien.
+
+**Vorteile:**
+- Inhalte werden in Markdown geschrieben (keine Programmierkenntnisse nötig)
+- Automatische Navigation basierend auf Dateistruktur
+- Integrierte Suche
+- Responsive Design
+- Syntax-Highlighting für Code
+- Dark/Light Mode
+
+---
+
+## Projektstruktur
+
+```
+nextra-docs/
+├── pages/                    # Alle Dokumentationsseiten
+│   ├── _meta.json           # Navigation & Reihenfolge
+│   ├── index.mdx            # Startseite
+│   ├── getting-started/     # Unterordner = Kategorie
+│   │   ├── _meta.json
+│   │   └── installation.mdx
+│   └── guides/
+│       ├── _meta.json
+│       └── beispiel.mdx
+├── public/                   # Statische Dateien (Bilder, etc.)
+├── theme.config.tsx          # Design & Branding Einstellungen
+├── next.config.mjs           # Next.js Konfiguration
+└── package.json
+```
+
+---
+
+## Inhalte erstellen
+
+### Neue Seite anlegen
+
+1. Erstelle eine `.mdx` Datei im `pages/` Ordner
+2. Schreibe deinen Inhalt in Markdown
+3. Die Seite ist sofort unter dem Dateinamen erreichbar
+
+**Beispiel:** `pages/guides/workflow.mdx` → erreichbar unter `/guides/workflow`
+
+### Markdown Grundlagen
+
+```markdown
+# Überschrift 1
+## Überschrift 2
+### Überschrift 3
+
+Normaler Text mit **fett** und *kursiv*.
+
+- Aufzählung Punkt 1
+- Aufzählung Punkt 2
+
+1. Nummerierte Liste
+2. Zweiter Punkt
+
+[Link Text](https://example.com)
+
+![Bild Alt-Text](/images/bild.png)
+```
+
+### Code-Blöcke
+
+````markdown
+```javascript
+const hello = "Conversion Junkies";
+console.log(hello);
+```
+````
+
+### Callouts / Hinweise
+
+```markdown
+> **Hinweis:** Dies ist ein wichtiger Hinweis.
+
+> ⚠️ **Warnung:** Vorsicht bei diesem Schritt.
+
+> ✅ **Tipp:** Best Practice Empfehlung.
+```
+
+---
+
+## Navigation konfigurieren
+
+### _meta.json verstehen
+
+Jeder Ordner kann eine `_meta.json` Datei enthalten, die die Navigation steuert.
+
+**Beispiel:** `pages/_meta.json`
+
+```json
+{
+  "index": "Startseite",
+  "getting-started": "Erste Schritte",
+  "guides": "Anleitungen",
+  "api": "API Referenz",
+  "---": {
+    "type": "separator"
+  },
+  "contact": {
+    "title": "Kontakt",
+    "type": "page"
+  },
+  "github": {
+    "title": "GitHub",
+    "href": "https://github.com/conversion-junkies",
+    "newWindow": true
+  }
+}
+```
+
+**Erklärung:**
+- Schlüssel = Dateiname ohne `.mdx`
+- Wert = Anzeigename in der Navigation
+- Reihenfolge in der Datei = Reihenfolge in der Navigation
+
+### Unterordner Navigation
+
+**Beispiel:** `pages/guides/_meta.json`
+
+```json
+{
+  "einfuehrung": "Einführung",
+  "fortgeschritten": "Fortgeschritten",
+  "best-practices": "Best Practices"
+}
+```
+
+---
+
+## Theme Konfiguration
+
+Die Datei `theme.config.tsx` steuert das Erscheinungsbild:
+
+```tsx
+import { DocsThemeConfig } from 'nextra-theme-docs'
+
+const config: DocsThemeConfig = {
+  logo: <span>Conversion Junkies Docs</span>,
+  
+  project: {
+    link: 'https://github.com/conversion-junkies/docs',
+  },
+  
+  docsRepositoryBase: 'https://github.com/conversion-junkies/docs/tree/main',
+  
+  footer: {
+    text: '© 2024 Conversion Junkies. Alle Rechte vorbehalten.',
+  },
+  
+  head: (
+    <>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <meta property="og:title" content="Conversion Junkies Docs" />
+      <meta property="og:description" content="Interne Dokumentation" />
+    </>
+  ),
+  
+  useNextSeoProps() {
+    return {
+      titleTemplate: '%s – CJ Docs'
+    }
+  },
+  
+  sidebar: {
+    defaultMenuCollapseLevel: 1,
+    toggleButton: true,
+  },
+  
+  toc: {
+    float: true,
+  },
+  
+  feedback: {
+    content: null, // Feedback-Button ausblenden
+  },
+  
+  editLink: {
+    text: 'Diese Seite bearbeiten →',
+  },
+}
+
+export default config
+```
+
+---
+
+## Industriestandards & Best Practices
+
+### Dateibenennungen
+
+| ✅ Richtig | ❌ Falsch |
+|-----------|----------|
+| `getting-started.mdx` | `Getting Started.mdx` |
+| `api-reference.mdx` | `API_Reference.mdx` |
+| `n8n-workflow.mdx` | `n8n workflow.mdx` |
+
+**Regeln:**
+- Nur Kleinbuchstaben
+- Bindestriche statt Leerzeichen
+- Keine Sonderzeichen
+- Keine Umlaute (ä → ae)
+
+### Ordnerstruktur
+
+```
+pages/
+├── index.mdx                    # Startseite
+├── getting-started/             # Onboarding
+│   ├── _meta.json
+│   ├── introduction.mdx
+│   └── quick-start.mdx
+├── processes/                   # Unternehmensprozesse
+│   ├── _meta.json
+│   ├── sales.mdx
+│   └── onboarding.mdx
+├── technical/                   # Technische Docs
+│   ├── _meta.json
+│   ├── infrastructure.mdx
+│   └── deployments.mdx
+├── tools/                       # Tool-Anleitungen
+│   ├── _meta.json
+│   ├── n8n.mdx
+│   ├── hubspot.mdx
+│   └── slack.mdx
+└── templates/                   # Vorlagen
+    ├── _meta.json
+    └── email-templates.mdx
+```
+
+### Inhaltliche Standards
+
+**Jede Seite sollte enthalten:**
+
+1. **Titel** – Klare H1 Überschrift
+2. **Einleitung** – Worum geht es? (1-2 Sätze)
+3. **Inhalt** – Strukturiert mit H2/H3
+4. **Nächste Schritte** – Links zu verwandten Themen
+
+**Beispiel-Template:**
+
+```markdown
+# Seitentitel
+
+> Kurze Beschreibung worum es auf dieser Seite geht.
+
+---
+
+## Übersicht
+
+Einleitender Text...
+
+## Schritt-für-Schritt
+
+### Schritt 1: Vorbereitung
+
+Beschreibung...
+
+### Schritt 2: Durchführung
+
+Beschreibung...
+
+## Häufige Fragen
+
+**Frage 1?**
+Antwort...
+
+---
+
+## Verwandte Themen
+
+- [Link zu Thema A](/pfad/zu/thema-a)
+- [Link zu Thema B](/pfad/zu/thema-b)
+```
+
+---
+
+## Lokale Entwicklung
+
+### Projekt starten
+
+```bash
+# Dependencies installieren
+npm install
+
+# Entwicklungsserver starten
+npm run dev
+```
+
+Die Dokumentation ist dann unter `http://localhost:3000` erreichbar.
+
+### Neue Inhalte hinzufügen
+
+1. `.mdx` Datei im richtigen Ordner erstellen
+2. `_meta.json` aktualisieren (falls nötig)
+3. Änderungen im Browser prüfen (Auto-Reload)
+4. Committen und pushen
+
+```bash
+git add .
+git commit -m "Docs: Neue Seite XY hinzugefügt"
+git push
+```
+
+---
+
+## Deployment
+
+### Build erstellen
+
+```bash
+npm run build
+```
+
+### Mit PM2 betreiben (Production)
+
+```bash
+# Build erstellen
+npm run build
+
+# Mit PM2 starten
+pm2 start npm --name "cj-docs" -- start
+
+# Autostart einrichten
+pm2 startup
+pm2 save
+```
+
+### Umgebungsvariablen
+
+Falls benötigt, in `.env.local`:
+
+```
+NEXT_PUBLIC_SITE_URL=https://docs.conversion-junkies.de
+```
+
+---
+
+## Troubleshooting
+
+### Seite wird nicht angezeigt
+
+- Dateiendung `.mdx` vorhanden?
+- Dateiname in `_meta.json` eingetragen?
+- Keine Syntaxfehler im Markdown?
+
+### Navigation stimmt nicht
+
+- `_meta.json` im richtigen Ordner?
+- JSON-Syntax korrekt? (Kommas, Anführungszeichen)
+- Cache leeren: `rm -rf .next && npm run dev`
+
+### Build schlägt fehl
+
+```bash
+# Cache löschen
+rm -rf .next
+rm -rf node_modules
+
+# Neu installieren
+npm install
+npm run build
+```
+
+### "Module not found" Fehler
+
+```bash
+npm install
+```
+
+---
+
+## Wichtige Dateien
+
+| Datei | Zweck |
+|-------|-------|
+| `pages/**/*.mdx` | Dokumentationsseiten |
+| `pages/**/_meta.json` | Navigation & Reihenfolge |
+| `theme.config.tsx` | Design & Branding |
+| `next.config.mjs` | Next.js Konfiguration |
+| `public/` | Bilder und statische Dateien |
+
+---
+
+## Kontakt & Support
+
+Bei Fragen zur Dokumentation oder technischen Problemen:
+
+- **Technischer Ansprechpartner:** [Name/Position eintragen]
+- **Repository:** [GitHub URL eintragen]
+- **Hosting:** [Server/Platform eintragen]
+
+---
+
+*Zuletzt aktualisiert: Dezember 2025*
