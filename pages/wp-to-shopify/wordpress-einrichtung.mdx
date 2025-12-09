@@ -1,0 +1,160 @@
+# WordPress Einrichtung
+
+Diese Anleitung erklärt, wie du deine WordPress-Website für den Import vorbereitest.
+
+import { Callout, Steps } from 'nextra/components'
+
+## Voraussetzungen
+
+Das Tool funktioniert mit:
+- **WordPress.com** Websites
+- **Selbst-gehostete WordPress** Installationen (WordPress.org)
+- WordPress Version 4.7 oder höher
+
+<Callout type="info">
+  Die WordPress REST API ist seit WordPress 4.7 standardmäßig aktiviert. Du musst in den meisten Fällen nichts extra einrichten.
+</Callout>
+
+## WordPress-URL ermitteln
+
+Deine WordPress-URL ist die Hauptadresse deiner Website.
+
+**Beispiele:**
+- `https://mein-blog.de`
+- `https://www.meine-firma.com`
+- `https://blog.meine-domain.de`
+
+<Callout type="warning">
+  Achte darauf, dass du `https://` am Anfang verwendest (nicht `http://`). Die meisten modernen Websites nutzen HTTPS.
+</Callout>
+
+## REST API testen
+
+Bevor du das Tool verwendest, kannst du prüfen, ob die REST API funktioniert:
+
+<Steps>
+
+### Browser-Test
+
+Öffne diese URL in deinem Browser (ersetze `meine-seite.de` mit deiner Domain):
+
+```
+https://meine-seite.de/wp-json/wp/v2/posts
+```
+
+### Ergebnis prüfen
+
+**Wenn du JSON-Daten siehst** (Daten mit geschweiften Klammern `{}`):
+Die REST API funktioniert.
+
+**Wenn du eine Fehlermeldung siehst:**
+Die REST API ist möglicherweise deaktiviert. Siehe [Fehlerbehebung](#rest-api-aktivieren).
+
+</Steps>
+
+## Im Tool verbinden
+
+<Steps>
+
+### Tool öffnen
+
+Starte das Tool und öffne [http://localhost:3000](http://localhost:3000).
+
+### Einstellungen-Tab öffnen
+
+Klicke auf den Tab **"Einstellungen"**.
+
+### WordPress-URL eingeben
+
+Gib im Feld **"WordPress URL"** deine Website-Adresse ein:
+
+```
+https://meine-seite.de
+```
+
+### Verbindung testen
+
+Klicke auf den Button **"Verbindung testen"**.
+
+### Ergebnis
+
+- **Grüner Haken:** Die Verbindung funktioniert.
+- **Rotes X:** Es gibt ein Problem. Siehe [Fehlerbehebung](/fehlerbehebung).
+
+</Steps>
+
+## Authentifizierung (optional)
+
+<Callout type="info">
+  Die meisten WordPress-Websites benötigen **keine** Authentifizierung, da veröffentlichte Blog-Posts öffentlich zugänglich sind.
+</Callout>
+
+Du benötigst Authentifizierung nur, wenn:
+- Deine Blog-Posts nicht öffentlich zugänglich sind
+- Du Entwürfe oder private Posts importieren möchtest
+- Deine Website passwortgeschützt ist
+
+### Benutzername und Passwort eingeben
+
+1. Gib deinen **WordPress-Benutzernamen** ein
+2. Gib dein **WordPress-Passwort** ein (oder ein Anwendungspasswort)
+
+### Anwendungspasswort erstellen (empfohlen)
+
+Anstatt dein normales Passwort zu verwenden, empfehlen wir ein Anwendungspasswort:
+
+1. Melde dich bei WordPress an
+2. Gehe zu **Benutzer** → **Profil**
+3. Scrolle nach unten zu **Anwendungspasswörter**
+4. Gib einen Namen ein (z.B. "Shopify Import Tool")
+5. Klicke auf **Neues Anwendungspasswort hinzufügen**
+6. Kopiere das generierte Passwort
+7. Verwende dieses Passwort im Import Tool
+
+## REST API aktivieren
+
+Falls die REST API nicht funktioniert, gibt es mehrere mögliche Ursachen:
+
+### Ursache 1: Sicherheits-Plugin blockiert API
+
+Manche Sicherheits-Plugins deaktivieren die REST API. Prüfe folgende Plugins:
+- Wordfence
+- iThemes Security
+- Sucuri
+- All In One WP Security
+
+**Lösung:** Suche in den Plugin-Einstellungen nach "REST API" und aktiviere sie.
+
+### Ursache 2: Permalink-Einstellungen
+
+1. Gehe zu **Einstellungen** → **Permalinks**
+2. Wähle eine Option außer "Einfach" (z.B. "Beitragsname")
+3. Klicke auf **Änderungen speichern**
+
+### Ursache 3: .htaccess Problem
+
+Bei Apache-Webservern kann eine fehlerhafte `.htaccess` Datei Probleme verursachen.
+
+1. Gehe zu **Einstellungen** → **Permalinks**
+2. Klicke auf **Änderungen speichern** (ohne etwas zu ändern)
+3. WordPress generiert die `.htaccess` Datei neu
+
+## Was wird geladen?
+
+Das Tool lädt folgende Informationen aus WordPress:
+
+| Feld | Beschreibung |
+|------|-------------|
+| **Titel** | Überschrift des Blog-Posts |
+| **Inhalt** | Der vollständige Artikel-Text (HTML) |
+| **Auszug** | Die Kurzbeschreibung |
+| **Datum** | Veröffentlichungsdatum |
+| **Slug** | Die URL-freundliche Kurzform (z.B. `mein-artikel`) |
+| **Autor** | Name des Autors |
+| **Tags** | Schlagwörter |
+| **Kategorien** | Kategorien |
+| **Beitragsbild** | Das Featured Image |
+
+## Nächster Schritt
+
+Nach erfolgreicher WordPress-Verbindung geht es weiter mit der [Shopify-Einrichtung](/shopify-einrichtung).

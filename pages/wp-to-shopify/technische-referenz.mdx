@@ -1,0 +1,432 @@
+# Technische Referenz
+
+Diese Seite enthält technische Details für Entwickler und fortgeschrittene Benutzer.
+
+import { Callout, FileTree } from 'nextra/components'
+
+## Technologie-Stack
+
+| Komponente | Technologie | Version |
+|------------|-------------|---------|
+| Framework | Next.js | 15.x |
+| Frontend | React | 19.x |
+| Sprache | TypeScript | 5.x |
+| Styling | Tailwind CSS | 3.x |
+| HTTP-Client | Axios (WordPress), Fetch (Shopify) | - |
+| Icons | Lucide React | - |
+
+## Projektstruktur
+
+<FileTree>
+  <FileTree.Folder name="wp-to-shopify" defaultOpen>
+    <FileTree.Folder name="app" defaultOpen>
+      <FileTree.File name="page.tsx" />
+      <FileTree.File name="layout.tsx" />
+      <FileTree.File name="globals.css" />
+      <FileTree.Folder name="api">
+        <FileTree.Folder name="shopify">
+          <FileTree.Folder name="articles">
+            <FileTree.File name="route.ts" />
+          </FileTree.Folder>
+          <FileTree.Folder name="blogs">
+            <FileTree.File name="route.ts" />
+          </FileTree.Folder>
+          <FileTree.Folder name="test">
+            <FileTree.File name="route.ts" />
+          </FileTree.Folder>
+          <FileTree.Folder name="upload-image">
+            <FileTree.File name="route.ts" />
+          </FileTree.Folder>
+        </FileTree.Folder>
+      </FileTree.Folder>
+    </FileTree.Folder>
+    <FileTree.Folder name="components">
+      <FileTree.File name="Settings.tsx" />
+      <FileTree.File name="ImportInterface.tsx" />
+      <FileTree.File name="DeleteInterface.tsx" />
+      <FileTree.File name="ImportLog.tsx" />
+      <FileTree.File name="ImportStatistics.tsx" />
+    </FileTree.Folder>
+    <FileTree.Folder name="lib">
+      <FileTree.File name="types.ts" />
+      <FileTree.Folder name="services">
+        <FileTree.File name="wordpress.ts" />
+        <FileTree.File name="shopify-api.ts" />
+        <FileTree.File name="shopify.ts" />
+        <FileTree.File name="image-processor.ts" />
+      </FileTree.Folder>
+    </FileTree.Folder>
+  </FileTree.Folder>
+</FileTree>
+
+## Architektur
+
+### Client-Server-Trennung
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│                 │     │                 │     │                 │
+│    Browser      │────▶│   Next.js API   │────▶│    Shopify      │
+│   (React App)   │     │    Routes       │     │     API         │
+│                 │     │                 │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+        │
+        │ Direkt (kein Proxy nötig)
+        ▼
+┌─────────────────┐
+│                 │
+│   WordPress     │
+│   REST API      │
+│                 │
+└─────────────────┘
+```
+
+### Warum Server-Side für Shopify?
+
+1. **Access Token schützen**: Der Token wird nicht im Browser exponiert
+2. **CORS vermeiden**: Server-zu-Server-Kommunikation hat keine CORS-Einschränkungen
+3. **Bild-Upload**: `Buffer` ist nur serverseitig verfügbar
+
+## API-Routen
+
+### `/api/shopify/test`
+
+Testet die Shopify-Verbindung.
+
+**Request:**
+```json
+{
+  "shop": "dein-shop.myshopify.com",
+  "accessToken": "shpat_xxxxx"
+}
+```
+
+**Response:**
+```json
+{
+  "connected": true
+}
+```
+
+---
+
+### `/api/shopify/blogs`
+
+Lädt alle Blogs des Shops.
+
+**Request:**
+```json
+{
+  "shop": "dein-shop.myshopify.com",
+  "accessToken": "shpat_xxxxx"
+}
+```
+
+**Response:**
+```json
+{
+  "blogs": [
+    {
+      "id": "123456789",
+      "title": "News",
+      "handle": "news"
+    }
+  ]
+}
+```
+
+---
+
+### `/api/shopify/articles`
+
+Verwaltet Blog-Artikel. Unterstützt mehrere Aktionen:
+
+#### Action: `getAll`
+
+Lädt alle Artikel eines Blogs.
+
+```json
+{
+  "shop": "...",
+  "accessToken": "...",
+  "blogId": "123456789",
+  "action": "getAll"
+}
+```
+
+#### Action: `create`
+
+Erstellt einen neuen Artikel.
+
+```json
+{
+  "shop": "...",
+  "accessToken": "...",
+  "blogId": "123456789",
+  "action": "create",
+  "article": {
+    "title": "Mein Artikel",
+    "content": "<p>Inhalt</p>",
+    "summary": "Kurzbeschreibung",
+    "author": "Admin",
+    "published_at": "2024-01-15T10:00:00Z",
+    "tags": "tag1, tag2",
+    "handle": "mein-artikel",
+    "image": {
+      "src": "https://cdn.shopify.com/...",
+      "alt": "Beschreibung"
+    }
+  }
+}
+```
+
+#### Action: `checkExists`
+
+Prüft, ob ein Artikel existiert.
+
+```json
+{
+  "shop": "...",
+  "accessToken": "...",
+  "blogId": "123456789",
+  "action": "checkExists",
+  "handle": "mein-artikel"
+}
+```
+
+#### Action: `checkMultiple`
+
+Prüft mehrere Artikel auf einmal.
+
+```json
+{
+  "shop": "...",
+  "accessToken": "...",
+  "blogId": "123456789",
+  "action": "checkMultiple",
+  "handles": ["artikel-1", "artikel-2", "artikel-3"]
+}
+```
+
+#### Action: `delete`
+
+Löscht einen Artikel.
+
+```json
+{
+  "shop": "...",
+  "accessToken": "...",
+  "blogId": "123456789",
+  "action": "delete",
+  "articleId": "987654321"
+}
+```
+
+#### Action: `deleteMultiple`
+
+Löscht mehrere Artikel.
+
+```json
+{
+  "shop": "...",
+  "accessToken": "...",
+  "blogId": "123456789",
+  "action": "deleteMultiple",
+  "articleIds": ["111", "222", "333"]
+}
+```
+
+---
+
+### `/api/shopify/upload-image`
+
+Lädt ein Bild zu Shopify hoch.
+
+**Request:**
+```json
+{
+  "shop": "dein-shop.myshopify.com",
+  "accessToken": "shpat_xxxxx",
+  "imageUrl": "https://wordpress-site.de/image.jpg"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "url": "https://cdn.shopify.com/s/files/1/xxxx/files/image.jpg"
+}
+```
+
+**Prozess:**
+1. Bild von URL herunterladen
+2. Staged Upload bei Shopify erstellen (GraphQL)
+3. Bild zum Staged Upload hochladen
+4. Datei in Shopify Files registrieren (GraphQL)
+5. CDN-URL zurückgeben
+
+## TypeScript-Typen
+
+### ImportConfig
+
+```typescript
+interface ImportConfig {
+  wordpressUrl: string;
+  wordpressUsername?: string;
+  wordpressPassword?: string;
+  shopifyShop: string;
+  shopifyAccessToken: string;
+  blogId: string;
+  batchSize: number;
+  importImages: boolean;
+  preserveSlug: boolean;
+  defaultAuthor: string;
+  importTags: boolean;
+  importCategories: boolean;
+}
+```
+
+### WordPressPost
+
+```typescript
+interface WordPressPost {
+  id: number;
+  date: string;
+  slug: string;
+  featured_media: number;
+  title: { rendered: string };
+  content: { rendered: string };
+  excerpt: { rendered: string };
+  _embedded?: {
+    author?: Array<{ id: number; name: string }>;
+    'wp:term'?: Array<Array<{ id: number; name: string; slug: string }>>;
+    'wp:featuredmedia'?: Array<{
+      id: number;
+      source_url: string;
+      alt_text: string;
+      media_details: { ... };
+    }>;
+  };
+}
+```
+
+### ShopifyBlogPost
+
+```typescript
+interface ShopifyBlogPost {
+  title: string;
+  content: string;
+  summary?: string;
+  author?: string;
+  published_at?: string;
+  tags?: string;
+  handle?: string;
+  image?: {
+    src: string;
+    alt?: string;
+  };
+}
+```
+
+## Services
+
+### WordPressClient
+
+```typescript
+class WordPressClient {
+  constructor(baseUrl: string, username?: string, password?: string)
+
+  testConnection(): Promise<boolean>
+  getPosts(page: number, perPage: number, includeEmbedded: boolean): Promise<{
+    posts: WordPressPost[];
+    totalPages: number;
+    total: number;
+  }>
+  getPost(id: number): Promise<WordPressPost>
+}
+```
+
+### ShopifyAPIClient
+
+```typescript
+class ShopifyAPIClient {
+  constructor(shop: string, accessToken: string)
+
+  testConnection(): Promise<boolean>
+  getBlogs(): Promise<Array<{ id: string; title: string; handle: string }>>
+  createBlogPost(blogId: string, post: ShopifyBlogPost): Promise<any>
+  checkPostExists(blogId: string, handle: string): Promise<boolean>
+  checkMultiplePostsExist(blogId: string, handles: string[]): Promise<{ [handle: string]: boolean }>
+  getAllBlogPosts(blogId: string): Promise<Array<{ id: string; title: string; handle: string; created_at: string }>>
+  deleteBlogPost(blogId: string, articleId: string): Promise<boolean>
+  deleteMultipleBlogPosts(blogId: string, articleIds: string[]): Promise<{ results: Array<...>; summary: { total: number; success: number; failed: number } }>
+}
+```
+
+### ImageProcessor
+
+```typescript
+class ImageProcessor {
+  static uploadImageToShopify(imageUrl: string, shopifyShop: string, shopifyAccessToken: string): Promise<string | null>
+  static processImageUrl(imageUrl: string, shopifyShop: string, shopifyAccessToken?: string): Promise<string>
+  static processContentImages(content: string, shopifyShop: string, shopifyAccessToken: string, wordpressUrl?: string): Promise<string>
+  static getFeaturedImageFromPost(wpPost: any, uploadToShopify: boolean, shopifyShop?: string, shopifyAccessToken?: string): Promise<{ src: string; alt?: string } | null>
+}
+```
+
+## Lokale Speicherung
+
+Die Konfiguration wird im `localStorage` des Browsers gespeichert:
+
+| Key | Inhalt |
+|-----|--------|
+| `shopify-blog-import-config` | JSON-String der ImportConfig |
+| `shopify-blog-import-last-date` | ISO-Datum des letzten Imports |
+
+## API-Versionen
+
+| API | Version |
+|-----|---------|
+| WordPress REST API | v2 |
+| Shopify Admin REST API | 2023-10 |
+| Shopify Admin GraphQL API | 2024-01 |
+
+## Rate Limits
+
+### Shopify
+
+- **REST API**: 2 Anfragen/Sekunde (Standard-Plan)
+- **GraphQL API**: 50 Punkte/Sekunde
+
+Das Tool implementiert automatische Pausen zwischen Anfragen.
+
+### WordPress
+
+Keine standardmäßigen Rate Limits, aber Hosting-Anbieter können eigene Limits setzen.
+
+## Entwicklung
+
+### Lokale Entwicklung starten
+
+```bash
+npm install
+npm run dev
+```
+
+### Produktions-Build
+
+```bash
+npm run build
+npm run start
+```
+
+### Linting
+
+```bash
+npm run lint
+```
+
+## Umgebungsvariablen
+
+Das Tool verwendet keine Umgebungsvariablen. Alle Konfigurationen werden zur Laufzeit über die Benutzeroberfläche eingegeben und im Browser-localStorage gespeichert.

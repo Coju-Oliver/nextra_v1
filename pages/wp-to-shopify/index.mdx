@@ -1,0 +1,61 @@
+# WordPress zu Shopify Blog Import Tool
+
+Ein einfaches Web-Tool zum Importieren von WordPress-Artikeln in einen Shopify-Blog.
+
+## Was macht dieses Tool?
+
+Dieses Tool hilft dir dabei, Blog-Artikel von einer WordPress-Website in deinen Shopify-Shop zu übertragen.
+
+**Das Tool kann:**
+- Alle Blog-Posts von WordPress laden
+- Posts auswählen, die importiert werden sollen
+- Titel, Inhalt, Datum und Tags übertragen
+- Bilder automatisch zu Shopify hochladen
+- Bereits importierte Artikel erkennen und überspringen
+
+## Schnellstart
+
+import { Steps } from 'nextra/components'
+
+<Steps>
+
+### Schritt 1: Tool starten
+
+```bash
+npm install
+npm run dev
+```
+
+Öffne dann [http://localhost:3000](http://localhost:3000) im Browser.
+
+### Schritt 2: WordPress verbinden
+
+Gib deine WordPress-URL ein (z.B. `https://mein-blog.de`) und teste die Verbindung.
+
+### Schritt 3: Shopify verbinden
+
+Gib deine Shopify-Shop-Domain und den Access Token ein. [Wie erstelle ich einen Access Token?](/shopify-einrichtung)
+
+### Schritt 4: Artikel importieren
+
+Wähle die gewünschten Artikel aus und klicke auf "Importieren".
+
+</Steps>
+
+## Systemanforderungen
+
+- **Node.js** Version 18 oder höher
+- **npm** (wird mit Node.js installiert)
+- Ein moderner Browser (Chrome, Firefox, Edge, Safari)
+- Internetzugang
+
+## Nächste Schritte
+
+import { Cards, Card } from 'nextra/components'
+
+<Cards>
+  <Card title="Installation" href="/installation" />
+  <Card title="WordPress einrichten" href="/wordpress-einrichtung" />
+  <Card title="Shopify einrichten" href="/shopify-einrichtung" />
+  <Card title="Import durchführen" href="/import-durchfuehren" />
+</Cards>

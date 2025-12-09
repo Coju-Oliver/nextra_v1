@@ -1,0 +1,209 @@
+# Shopify Einrichtung
+
+Diese Anleitung erklärt Schritt für Schritt, wie du Shopify für den Blog-Import vorbereitest.
+
+import { Callout, Steps, Tabs } from 'nextra/components'
+
+## Übersicht
+
+Um Artikel in deinen Shopify-Blog zu importieren, benötigst du:
+
+1. **Shop-Domain** - Die URL deines Shopify-Shops
+2. **Access Token** - Ein Sicherheitsschlüssel für die API
+3. **Blog-ID** - Der Blog, in den importiert werden soll
+
+## Shop-Domain ermitteln
+
+Deine Shop-Domain findest du in der Adresszeile deines Browsers, wenn du bei Shopify angemeldet bist.
+
+**Format:**
+```
+dein-shop-name.myshopify.com
+```
+
+<Callout type="info">
+  Verwende immer die `.myshopify.com` Domain, nicht deine benutzerdefinierte Domain.
+</Callout>
+
+**Beispiele:**
+- `mein-laden.myshopify.com` ✓
+- `super-shop.myshopify.com` ✓
+- `www.mein-laden.de` ✗ (falsch)
+
+## Access Token erstellen
+
+Der Access Token ist wie ein Passwort, das dem Import-Tool erlaubt, auf deinen Shop zuzugreifen.
+
+<Callout type="warning">
+  **Wichtig:** Halte deinen Access Token geheim! Teile ihn nicht mit anderen.
+</Callout>
+
+<Steps>
+
+### Shopify Admin öffnen
+
+Gehe zu deinem Shopify Admin-Bereich:
+```
+https://dein-shop-name.myshopify.com/admin
+```
+
+### Zu Apps navigieren
+
+1. Klicke links im Menü auf **Einstellungen** (ganz unten)
+2. Klicke auf **Apps und Vertriebskanäle**
+3. Klicke oben rechts auf **Apps entwickeln**
+
+### Entwicklermodus aktivieren (falls nötig)
+
+Wenn du zum ersten Mal eine App erstellst, musst du den Entwicklermodus aktivieren:
+
+1. Klicke auf **Entwicklung von Apps erlauben**
+2. Bestätige mit **Entwicklung von Apps erlauben**
+
+### Neue App erstellen
+
+1. Klicke auf **App erstellen**
+2. Gib einen Namen ein, z.B. `Blog Import Tool`
+3. Klicke auf **App erstellen**
+
+### API-Berechtigungen konfigurieren
+
+1. Klicke auf **Admin-API-Zugangsdaten konfigurieren**
+2. Scrolle nach unten zu den Berechtigungen
+3. Suche nach **"Online Store"** oder **"Content"**
+4. Aktiviere folgende Berechtigungen:
+
+| Berechtigung | Zugriff |
+|-------------|---------|
+| `read_content` | Lesen |
+| `write_content` | Schreiben |
+
+<Callout type="info">
+  In neueren Shopify-Versionen heißen die Berechtigungen möglicherweise anders. Suche nach "Blog", "Article" oder "Content".
+</Callout>
+
+5. Klicke auf **Speichern**
+
+### App installieren
+
+1. Klicke auf den Tab **API-Zugangsdaten**
+2. Klicke auf **App installieren**
+3. Bestätige mit **Installieren**
+
+### Access Token kopieren
+
+Nach der Installation siehst du den **Admin API Access Token**.
+
+1. Klicke auf **Token einmalig anzeigen**
+2. Kopiere den Token (beginnt mit `shpat_`)
+3. Speichere den Token sicher - du kannst ihn nur einmal sehen!
+
+</Steps>
+
+<Callout type="error">
+  **Achtung:** Der Access Token wird nur einmal angezeigt! Wenn du ihn verlierst, musst du eine neue App erstellen.
+</Callout>
+
+## Im Tool verbinden
+
+<Steps>
+
+### Einstellungen öffnen
+
+Öffne das Import-Tool und gehe zum Tab **"Einstellungen"**.
+
+### Shopify-Daten eingeben
+
+Gib folgende Daten ein:
+
+| Feld | Beispiel |
+|------|----------|
+| Shop Domain | `mein-laden.myshopify.com` |
+| Access Token | `shpat_xxxxxxxxxxxxx` |
+
+### Verbindung testen
+
+Klicke auf **"Verbindung testen"**.
+
+Bei Erfolg siehst du:
+- Einen grünen Haken
+- Eine Liste deiner Blogs
+
+### Blog auswählen
+
+Wähle aus dem Dropdown-Menü den Blog aus, in den du importieren möchtest.
+
+</Steps>
+
+## Keinen Blog vorhanden?
+
+Falls du noch keinen Blog in Shopify hast:
+
+<Steps>
+
+### Blog erstellen
+
+1. Gehe in Shopify zu **Online-Store** → **Blog-Beiträge**
+2. Klicke auf **Blog verwalten**
+3. Klicke auf **Blog hinzufügen**
+4. Gib einen Namen ein (z.B. "News" oder "Blog")
+5. Klicke auf **Speichern**
+
+### Tool aktualisieren
+
+Gehe zurück zum Import-Tool und klicke erneut auf **"Verbindung testen"**. Der neue Blog sollte jetzt erscheinen.
+
+</Steps>
+
+## Erforderliche Berechtigungen im Detail
+
+| Berechtigung | Wofür? |
+|-------------|--------|
+| `read_content` | Blog-Liste laden, prüfen ob Artikel existieren |
+| `write_content` | Neue Artikel erstellen |
+| `read_files` | (Optional) Für Bild-Upload |
+| `write_files` | (Optional) Für Bild-Upload |
+
+<Callout type="info">
+  Für den Bild-Import werden zusätzlich die `files`-Berechtigungen benötigt. Ohne diese werden Bilder nur verlinkt, nicht hochgeladen.
+</Callout>
+
+## Sicherheitshinweise
+
+- **Teile deinen Access Token niemals öffentlich**
+- Verwende das Tool nur auf vertrauenswürdigen Computern
+- Der Token wird lokal im Browser gespeichert (localStorage)
+- Du kannst den Token jederzeit in Shopify widerrufen, indem du die App deinstallierst
+
+## Fehlerbehebung
+
+### "401 Unauthorized"
+
+**Problem:** Der Access Token ist ungültig.
+
+**Lösung:**
+1. Prüfe, ob du den Token korrekt kopiert hast
+2. Stelle sicher, dass die App installiert ist
+3. Erstelle ggf. einen neuen Token
+
+### "403 Forbidden"
+
+**Problem:** Fehlende Berechtigungen.
+
+**Lösung:**
+1. Gehe zu deiner App in Shopify
+2. Klicke auf **Admin-API-Zugangsdaten konfigurieren**
+3. Aktiviere `read_content` und `write_content`
+4. Speichere und installiere die App neu
+
+### Blog-Liste ist leer
+
+**Problem:** Es wurden keine Blogs gefunden.
+
+**Lösung:**
+1. Erstelle einen Blog in Shopify (siehe oben)
+2. Prüfe die `read_content` Berechtigung
+
+## Nächster Schritt
+
+Nach erfolgreicher Shopify-Verbindung kannst du mit dem [Import](/import-durchfuehren) beginnen.

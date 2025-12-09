@@ -1,0 +1,145 @@
+# Installation
+
+Diese Anleitung erklärt Schritt für Schritt, wie du das WordPress zu Shopify Import Tool installierst.
+
+## Voraussetzungen
+
+import { Callout } from 'nextra/components'
+
+<Callout type="info">
+  Bevor du beginnst, stelle sicher, dass Node.js auf deinem Computer installiert ist.
+</Callout>
+
+### Node.js installieren
+
+1. Gehe zu [nodejs.org](https://nodejs.org)
+2. Lade die **LTS-Version** herunter (empfohlen)
+3. Führe die Installation aus
+4. Starte deinen Computer neu
+
+**Überprüfen ob Node.js installiert ist:**
+
+Öffne ein Terminal (Windows: `cmd` oder PowerShell, Mac: Terminal) und gib ein:
+
+```bash
+node --version
+```
+
+Du solltest eine Versionsnummer sehen, z.B. `v18.17.0`. Wenn eine Fehlermeldung erscheint, ist Node.js nicht korrekt installiert.
+
+## Tool herunterladen
+
+### Option 1: Mit Git (empfohlen)
+
+```bash
+git clone [REPOSITORY-URL]
+cd wp-to-shopify
+```
+
+### Option 2: Als ZIP-Datei
+
+1. Lade das Repository als ZIP herunter
+2. Entpacke die ZIP-Datei in einen Ordner deiner Wahl
+3. Öffne ein Terminal und navigiere in den Ordner:
+
+```bash
+cd pfad/zum/wp-to-shopify
+```
+
+## Abhängigkeiten installieren
+
+Im Projektordner führe folgenden Befehl aus:
+
+```bash
+npm install
+```
+
+<Callout type="warning">
+  Dieser Schritt kann einige Minuten dauern. Warte, bis der Vorgang abgeschlossen ist.
+</Callout>
+
+**Was passiert hier?**
+- npm lädt alle benötigten Pakete herunter
+- Die Pakete werden im Ordner `node_modules` gespeichert
+- Du siehst möglicherweise Warnungen - diese können in den meisten Fällen ignoriert werden
+
+## Tool starten
+
+### Entwicklungsmodus
+
+```bash
+npm run dev
+```
+
+Du siehst dann eine Meldung wie:
+
+```
+▲ Next.js 15.x.x
+- Local: http://localhost:3000
+```
+
+Öffne deinen Browser und gehe zu [http://localhost:3000](http://localhost:3000).
+
+### Produktionsmodus (optional)
+
+Für bessere Performance kannst du das Tool auch im Produktionsmodus starten:
+
+```bash
+npm run build
+npm run start
+```
+
+## Häufige Installationsprobleme
+
+### "npm: command not found"
+
+**Problem:** Node.js ist nicht installiert oder nicht im PATH.
+
+**Lösung:**
+1. Installiere Node.js erneut von [nodejs.org](https://nodejs.org)
+2. Starte deinen Computer neu
+3. Versuche es erneut
+
+### "EACCES: permission denied"
+
+**Problem:** Keine Berechtigung für den Ordner.
+
+**Lösung (Mac/Linux):**
+```bash
+sudo npm install
+```
+
+**Lösung (Windows):**
+Öffne PowerShell als Administrator und führe den Befehl erneut aus.
+
+### "Cannot find module..."
+
+**Problem:** Die Abhängigkeiten wurden nicht korrekt installiert.
+
+**Lösung:**
+```bash
+rm -rf node_modules
+npm install
+```
+
+Auf Windows:
+```bash
+rmdir /s /q node_modules
+npm install
+```
+
+### Port 3000 ist belegt
+
+**Problem:** Ein anderes Programm nutzt bereits Port 3000.
+
+**Lösung:**
+Du kannst einen anderen Port verwenden:
+```bash
+npm run dev -- -p 3001
+```
+
+Öffne dann [http://localhost:3001](http://localhost:3001).
+
+## Nächster Schritt
+
+Nach erfolgreicher Installation geht es weiter mit der [WordPress-Einrichtung](/wordpress-einrichtung).
