@@ -1,0 +1,505 @@
+# Deployment
+
+Anleitung zum Deployment des Import-Tools in verschiedenen Umgebungen.
+
+import { Callout, Steps, Tabs } from 'nextra/components'
+
+## Übersicht
+
+Das Tool kann auf verschiedene Arten deployed werden:
+
+| Methode | Komplexität | Kosten | Empfohlen für |
+|---------|-------------|--------|---------------|
+| Lokal | Einfach | Kostenlos | Einzelnutzer, Entwicklung |
+| Vercel | Einfach | Kostenlos* | Teams, Production |
+| Docker | Mittel | Variabel | Self-Hosting |
+| Node.js Server | Mittel | Variabel | Volle Kontrolle |
+
+---
+
+## Lokales Deployment
+
+Für Einzelnutzer oder Entwicklung.
+
+<Steps>
+
+### Dependencies installieren
+
+```bash
+npm install
+```
+
+### Production Build erstellen
+
+```bash
+npm run build
+```
+
+### Server starten
+
+```bash
+npm run start
+```
+
+</Steps>
+
+Das Tool ist dann unter `http://localhost:3000` erreichbar.
+
+### Als Hintergrund-Dienst (PM2)
+
+```bash
+# PM2 installieren
+npm install -g pm2
+
+# Build erstellen
+npm run build
+
+# Mit PM2 starten
+pm2 start npm --name "wp-to-shopify" -- start
+
+# Status prüfen
+pm2 status
+
+# Logs ansehen
+pm2 logs wp-to-shopify
+
+# Beim Systemstart automatisch starten
+pm2 startup
+pm2 save
+```
+
+---
+
+## Vercel Deployment
+
+<Callout type="info">
+  Vercel ist der Hersteller von Next.js und bietet das einfachste Deployment.
+</Callout>
+
+<Steps>
+
+### Repository vorbereiten
+
+Das Projekt muss in einem Git-Repository sein (GitHub, GitLab, Bitbucket).
+
+### Vercel Account erstellen
+
+Gehe zu [vercel.com](https://vercel.com) und erstelle einen Account.
+
+### Projekt importieren
+
+1. Klicke auf "New Project"
+2. Verbinde dein Git-Repository
+3. Wähle das Repository aus
+4. Klicke auf "Deploy"
+
+### Fertig!
+
+Vercel erkennt Next.js automatisch und konfiguriert alles.
+
+</Steps>
+
+### Vercel-Konfiguration (optional)
+
+```json
+// vercel.json
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs"
+}
+```
+
+### Umgebungsvariablen
+
+Falls du Umgebungsvariablen brauchst:
+
+1. Gehe zu Project Settings → Environment Variables
+2. Füge Variablen hinzu
+
+```
+NEXT_PUBLIC_API_URL=https://api.example.com
+```
+
+---
+
+## Docker Deployment
+
+### Dockerfile
+
+```dockerfile
+# Dockerfile
+FROM node:18-alpine AS base
+
+# Dependencies installieren
+FROM base AS deps
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Build
+FROM base AS builder
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+RUN npm run build
+
+# Production Image
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+CMD ["node", "server.js"]
+```
+
+### Next.js für Standalone konfigurieren
+
+```javascript
+// next.config.js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'standalone',
+};
+
+module.exports = nextConfig;
+```
+
+### Docker-Befehle
+
+```bash
+# Image bauen
+docker build -t wp-to-shopify .
+
+# Container starten
+docker run -p 3000:3000 wp-to-shopify
+
+# Mit Docker Compose
+docker-compose up -d
+```
+
+### Docker Compose
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+---
+
+## Node.js Server (VPS)
+
+Deployment auf einem eigenen Server.
+
+<Steps>
+
+### Server vorbereiten
+
+```bash
+# Node.js installieren (Ubuntu)
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# PM2 installieren
+sudo npm install -g pm2
+```
+
+### Projekt übertragen
+
+```bash
+# Mit Git
+git clone [REPO_URL]
+cd wp-to-shopify
+
+# Oder mit SCP
+scp -r ./wp-to-shopify user@server:/var/www/
+```
+
+### Dependencies & Build
+
+```bash
+npm ci --production
+npm run build
+```
+
+### Mit PM2 starten
+
+```bash
+pm2 start npm --name "wp-to-shopify" -- start
+pm2 save
+pm2 startup
+```
+
+</Steps>
+
+### Nginx Reverse Proxy
+
+```nginx
+# /etc/nginx/sites-available/wp-to-shopify
+server {
+    listen 80;
+    server_name import.example.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+```bash
+# Aktivieren
+sudo ln -s /etc/nginx/sites-available/wp-to-shopify /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### SSL mit Let's Encrypt
+
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d import.example.com
+```
+
+---
+
+## Sicherheitshinweise
+
+<Callout type="warning">
+  Bei öffentlichem Deployment besondere Vorsicht!
+</Callout>
+
+### Access Token Schutz
+
+Der Shopify Access Token wird im Browser localStorage gespeichert. Bei öffentlichem Deployment:
+
+1. **Authentifizierung hinzufügen** - Nur autorisierte Benutzer sollten Zugang haben
+2. **HTTPS verwenden** - Immer SSL/TLS
+3. **Keine Tokens in URLs** - Nie Tokens in Query-Parametern
+
+### Basis-Authentifizierung mit Next.js
+
+```typescript
+// middleware.ts
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+export function middleware(request: NextRequest) {
+  const authHeader = request.headers.get('authorization');
+
+  if (!authHeader) {
+    return new NextResponse('Authentication required', {
+      status: 401,
+      headers: {
+        'WWW-Authenticate': 'Basic realm="Secure Area"',
+      },
+    });
+  }
+
+  const [scheme, encoded] = authHeader.split(' ');
+  if (scheme !== 'Basic') {
+    return new NextResponse('Invalid authentication scheme', { status: 401 });
+  }
+
+  const decoded = Buffer.from(encoded, 'base64').toString();
+  const [user, password] = decoded.split(':');
+
+  // Credentials prüfen (besser: Umgebungsvariablen verwenden)
+  if (user !== process.env.AUTH_USER || password !== process.env.AUTH_PASSWORD) {
+    return new NextResponse('Invalid credentials', { status: 401 });
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+};
+```
+
+### Umgebungsvariablen
+
+```bash
+# .env.local (nicht committen!)
+AUTH_USER=admin
+AUTH_PASSWORD=sicheres-passwort
+```
+
+---
+
+## Performance-Optimierung
+
+### Build-Optimierung
+
+```javascript
+// next.config.js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Standalone Output für Docker
+  output: 'standalone',
+
+  // Bilder von externen Domains erlauben
+  images: {
+    domains: ['cdn.shopify.com'],
+  },
+
+  // Powered-by Header entfernen
+  poweredByHeader: false,
+
+  // Kompression aktivieren
+  compress: true,
+};
+
+module.exports = nextConfig;
+```
+
+### Caching
+
+```typescript
+// API Route mit Caching
+export async function GET(request: NextRequest) {
+  // ...
+
+  return new NextResponse(JSON.stringify(data), {
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=60, stale-while-revalidate=30',
+    },
+  });
+}
+```
+
+---
+
+## Monitoring
+
+### Health Check Endpoint
+
+```typescript
+// app/api/health/route.ts
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  return NextResponse.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || 'unknown',
+  });
+}
+```
+
+### Logging mit PM2
+
+```bash
+# Logs in Echtzeit
+pm2 logs wp-to-shopify
+
+# Logs speichern
+pm2 install pm2-logrotate
+pm2 set pm2-logrotate:max_size 10M
+pm2 set pm2-logrotate:retain 7
+```
+
+### Externe Monitoring-Dienste
+
+- **Uptime Robot** - Kostenlos für bis zu 50 Monitore
+- **Pingdom** - Professional Monitoring
+- **Datadog** - Full-Stack Observability
+
+---
+
+## Backup & Recovery
+
+### Daten-Backup
+
+Da alle Konfigurationen im Browser-localStorage liegen, gibt es serverseitig keine Daten zu sichern.
+
+**Benutzer-Empfehlung:**
+- Notieren Sie Ihre Shopify Access Tokens sicher
+- Exportieren Sie Ihre WordPress-Konfiguration vor dem Import
+
+### Code-Backup
+
+```bash
+# Git Repository regelmäßig sichern
+git push origin main
+
+# Oder tar-Archiv erstellen
+tar -czvf wp-to-shopify-backup.tar.gz wp-to-shopify/
+```
+
+---
+
+## Troubleshooting
+
+### Build-Fehler
+
+```bash
+# Node Modules komplett neu installieren
+rm -rf node_modules .next
+npm install
+npm run build
+```
+
+### Port bereits belegt
+
+```bash
+# Prozess auf Port 3000 finden
+lsof -i :3000
+
+# Prozess beenden
+kill -9 [PID]
+
+# Oder anderen Port verwenden
+PORT=3001 npm start
+```
+
+### Memory-Probleme
+
+```bash
+# Node.js Memory erhöhen
+NODE_OPTIONS="--max-old-space-size=4096" npm run build
+```
+
+### PM2 neu starten
+
+```bash
+pm2 restart wp-to-shopify
+pm2 reload wp-to-shopify  # Zero-downtime reload
+```

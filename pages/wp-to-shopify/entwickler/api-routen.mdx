@@ -1,0 +1,647 @@
+# API-Routen
+
+Detaillierte Dokumentation aller Server-seitigen API-Endpunkte.
+
+import { Callout, Tabs } from 'nextra/components'
+
+## Übersicht
+
+Alle API-Routen befinden sich unter `app/api/shopify/` und dienen als Proxy zur Shopify Admin API.
+
+| Route | Datei | Zweck |
+|-------|-------|-------|
+| `/api/shopify/test` | `test/route.ts` | Verbindungstest |
+| `/api/shopify/blogs` | `blogs/route.ts` | Blogs laden |
+| `/api/shopify/articles` | `articles/route.ts` | Artikel CRUD |
+| `/api/shopify/upload-image` | `upload-image/route.ts` | Bild-Upload |
+
+## Gemeinsame Struktur
+
+Alle Routen folgen dem gleichen Muster:
+
+```typescript
+// app/api/shopify/[route]/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  try {
+    // 1. Request Body parsen
+    const { shop, accessToken, ...data } = await request.json();
+
+    // 2. Validierung
+    if (!shop || !accessToken) {
+      return NextResponse.json(
+        { error: 'Shop and accessToken are required' },
+        { status: 400 }
+      );
+    }
+
+    // 3. Shop-Domain normalisieren
+    const cleanShop = shop
+      .replace(/\.myshopify\.com$/, '')
+      .replace(/^https?:\/\//, '');
+
+    // 4. Shopify API aufrufen
+    const response = await fetch(
+      `https://${cleanShop}.myshopify.com/admin/api/2023-10/...`,
+      {
+        headers: {
+          'X-Shopify-Access-Token': accessToken,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    // 5. Response verarbeiten
+    const result = await response.json();
+    return NextResponse.json(result);
+
+  } catch (error) {
+    // 6. Fehlerbehandlung
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
+  }
+}
+```
+
+---
+
+## `/api/shopify/test`
+
+Testet die Verbindung zu Shopify.
+
+### Request
+
+```typescript
+POST /api/shopify/test
+Content-Type: application/json
+
+{
+  "shop": "mein-shop.myshopify.com",
+  "accessToken": "shpat_xxxxxxxxxxxxx"
+}
+```
+
+### Response
+
+<Tabs items={['Erfolg', 'Fehler']}>
+
+<Tabs.Tab>
+```json
+{
+  "connected": true
+}
+```
+</Tabs.Tab>
+
+<Tabs.Tab>
+```json
+{
+  "connected": false
+}
+```
+</Tabs.Tab>
+
+</Tabs>
+
+### Implementierung
+
+```typescript
+// app/api/shopify/test/route.ts
+export async function POST(request: NextRequest) {
+  const { shop, accessToken } = await request.json();
+
+  const response = await fetch(
+    `https://${cleanShop}.myshopify.com/admin/api/2023-10/shop.json`,
+    { headers: { 'X-Shopify-Access-Token': accessToken } }
+  );
+
+  return NextResponse.json({
+    connected: response.ok
+  });
+}
+```
+
+---
+
+## `/api/shopify/blogs`
+
+Lädt alle Blogs eines Shops.
+
+### Request
+
+```typescript
+POST /api/shopify/blogs
+Content-Type: application/json
+
+{
+  "shop": "mein-shop.myshopify.com",
+  "accessToken": "shpat_xxxxxxxxxxxxx"
+}
+```
+
+### Response
+
+```json
+{
+  "blogs": [
+    {
+      "id": "123456789",
+      "title": "News",
+      "handle": "news"
+    },
+    {
+      "id": "987654321",
+      "title": "Blog",
+      "handle": "blog"
+    }
+  ]
+}
+```
+
+### Shopify API Endpoint
+
+```
+GET /admin/api/2023-10/blogs.json
+```
+
+---
+
+## `/api/shopify/articles`
+
+Hauptroute für Artikel-Operationen. Verwendet ein `action`-Feld zur Unterscheidung.
+
+### Actions
+
+| Action | Beschreibung |
+|--------|-------------|
+| `getAll` | Alle Artikel eines Blogs laden |
+| `create` | Neuen Artikel erstellen |
+| `checkExists` | Prüfen ob Artikel existiert (einzeln) |
+| `checkMultiple` | Prüfen ob Artikel existieren (mehrere) |
+| `delete` | Artikel löschen (einzeln) |
+| `deleteMultiple` | Artikel löschen (mehrere) |
+
+---
+
+### Action: `getAll`
+
+Lädt alle Artikel eines Blogs mit Pagination.
+
+#### Request
+
+```json
+{
+  "shop": "mein-shop.myshopify.com",
+  "accessToken": "shpat_xxxxxxxxxxxxx",
+  "blogId": "123456789",
+  "action": "getAll"
+}
+```
+
+#### Response
+
+```json
+{
+  "articles": [
+    {
+      "id": "111111111",
+      "title": "Mein erster Artikel",
+      "handle": "mein-erster-artikel",
+      "created_at": "2024-01-15T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### Implementierung (Pagination)
+
+```typescript
+case 'getAll':
+  const allArticles = [];
+  let nextPageUrl = `${baseURL}/blogs/${blogId}/articles.json?limit=250`;
+
+  while (nextPageUrl) {
+    const response = await fetch(nextPageUrl, { headers });
+    const data = await response.json();
+
+    allArticles.push(...data.articles);
+
+    // Link-Header für nächste Seite prüfen
+    const linkHeader = response.headers.get('Link');
+    nextPageUrl = null;
+
+    if (linkHeader) {
+      const nextMatch = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+      if (nextMatch) {
+        nextPageUrl = nextMatch[1];
+      }
+    }
+  }
+
+  return NextResponse.json({ articles: allArticles });
+```
+
+---
+
+### Action: `create`
+
+Erstellt einen neuen Artikel.
+
+#### Request
+
+```json
+{
+  "shop": "mein-shop.myshopify.com",
+  "accessToken": "shpat_xxxxxxxxxxxxx",
+  "blogId": "123456789",
+  "action": "create",
+  "article": {
+    "title": "Mein neuer Artikel",
+    "content": "<p>Inhalt des Artikels</p>",
+    "summary": "Kurzbeschreibung",
+    "author": "Admin",
+    "published_at": "2024-01-15T10:00:00Z",
+    "tags": "tag1, tag2, tag3",
+    "handle": "mein-neuer-artikel",
+    "image": {
+      "src": "https://cdn.shopify.com/...",
+      "alt": "Bildbeschreibung"
+    }
+  }
+}
+```
+
+#### Response
+
+```json
+{
+  "article": {
+    "id": 222222222,
+    "title": "Mein neuer Artikel",
+    "handle": "mein-neuer-artikel",
+    "...": "..."
+  }
+}
+```
+
+#### Feld-Mapping
+
+<Callout type="warning">
+  Shopify verwendet `body_html` statt `content`!
+</Callout>
+
+```typescript
+const articleData = {
+  article: {
+    title: data.article.title,
+    body_html: data.article.content,  // ← Wichtig!
+    summary: data.article.summary,
+    author: data.article.author,
+    published_at: data.article.published_at,
+    tags: data.article.tags,
+    handle: data.article.handle,
+    image: data.article.image
+  }
+};
+```
+
+---
+
+### Action: `checkExists`
+
+Prüft, ob ein Artikel mit gegebenem Handle existiert.
+
+#### Request
+
+```json
+{
+  "shop": "...",
+  "accessToken": "...",
+  "blogId": "123456789",
+  "action": "checkExists",
+  "handle": "mein-artikel"
+}
+```
+
+#### Response
+
+```json
+{
+  "exists": true
+}
+```
+
+---
+
+### Action: `checkMultiple`
+
+Prüft mehrere Handles auf einmal (effizienter).
+
+#### Request
+
+```json
+{
+  "shop": "...",
+  "accessToken": "...",
+  "blogId": "123456789",
+  "action": "checkMultiple",
+  "handles": ["artikel-1", "artikel-2", "artikel-3"]
+}
+```
+
+#### Response
+
+```json
+{
+  "existingPosts": {
+    "artikel-1": true,
+    "artikel-2": false,
+    "artikel-3": true
+  }
+}
+```
+
+#### Implementierung
+
+```typescript
+case 'checkMultiple':
+  // Alle existierenden Artikel laden
+  const existingArticles = await fetchAllArticles(blogId);
+
+  // Handle-Set erstellen für O(1) Lookup
+  const existingHandles = new Set(
+    existingArticles.map(a => a.handle)
+  );
+
+  // Ergebnis-Map erstellen
+  const result = {};
+  for (const handle of data.handles) {
+    result[handle] = existingHandles.has(handle);
+  }
+
+  return NextResponse.json({ existingPosts: result });
+```
+
+---
+
+### Action: `delete`
+
+Löscht einen einzelnen Artikel.
+
+#### Request
+
+```json
+{
+  "shop": "...",
+  "accessToken": "...",
+  "blogId": "123456789",
+  "action": "delete",
+  "articleId": "111111111"
+}
+```
+
+#### Response
+
+```json
+{
+  "success": true
+}
+```
+
+---
+
+### Action: `deleteMultiple`
+
+Löscht mehrere Artikel.
+
+#### Request
+
+```json
+{
+  "shop": "...",
+  "accessToken": "...",
+  "blogId": "123456789",
+  "action": "deleteMultiple",
+  "articleIds": ["111111111", "222222222", "333333333"]
+}
+```
+
+#### Response
+
+```json
+{
+  "results": [
+    { "articleId": "111111111", "success": true },
+    { "articleId": "222222222", "success": true },
+    { "articleId": "333333333", "success": false, "error": "404 Not Found" }
+  ],
+  "summary": {
+    "total": 3,
+    "success": 2,
+    "failed": 1
+  }
+}
+```
+
+---
+
+## `/api/shopify/upload-image`
+
+Lädt ein Bild zu Shopify hoch.
+
+### Request
+
+```json
+{
+  "shop": "mein-shop.myshopify.com",
+  "accessToken": "shpat_xxxxxxxxxxxxx",
+  "imageUrl": "https://wordpress-site.de/wp-content/uploads/bild.jpg",
+  "filename": "bild.jpg"  // Optional
+}
+```
+
+### Response
+
+<Tabs items={['Erfolg', 'Fehler']}>
+
+<Tabs.Tab>
+```json
+{
+  "success": true,
+  "url": "https://cdn.shopify.com/s/files/1/xxxx/files/bild.jpg"
+}
+```
+</Tabs.Tab>
+
+<Tabs.Tab>
+```json
+{
+  "error": "Failed to download image: 404"
+}
+```
+</Tabs.Tab>
+
+</Tabs>
+
+### Upload-Prozess
+
+Der Bild-Upload verwendet die Shopify GraphQL API mit Staged Uploads:
+
+```
+1. Bild von WordPress URL herunterladen
+         ↓
+2. stagedUploadsCreate Mutation aufrufen
+         ↓
+3. Bild zum Staged Upload URL hochladen (POST mit FormData)
+         ↓
+4. fileCreate Mutation aufrufen
+         ↓
+5. CDN URL zurückgeben
+```
+
+### GraphQL Mutations
+
+#### Staged Upload erstellen
+
+```graphql
+mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+  stagedUploadsCreate(input: $input) {
+    stagedTargets {
+      url
+      resourceUrl
+      parameters {
+        name
+        value
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+```
+
+#### Datei registrieren
+
+```graphql
+mutation fileCreate($files: [FileCreateInput!]!) {
+  fileCreate(files: $files) {
+    files {
+      ... on MediaImage {
+        id
+        image {
+          url
+          altText
+        }
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+```
+
+### Komplette Implementierung
+
+```typescript
+export async function POST(request: NextRequest) {
+  const { shop, accessToken, imageUrl } = await request.json();
+
+  // 1. Bild herunterladen
+  const imageResponse = await fetch(imageUrl);
+  const buffer = Buffer.from(await imageResponse.arrayBuffer());
+  const contentType = imageResponse.headers.get('content-type');
+
+  // 2. Staged Upload erstellen
+  const stagedUpload = await fetch(graphqlUrl, {
+    method: 'POST',
+    headers: { 'X-Shopify-Access-Token': accessToken },
+    body: JSON.stringify({
+      query: stagedUploadMutation,
+      variables: {
+        input: [{
+          resource: 'FILE',
+          filename: filename,
+          mimeType: contentType,
+          fileSize: buffer.byteLength.toString(),
+          httpMethod: 'POST'
+        }]
+      }
+    })
+  });
+
+  const stagedTarget = stagedUpload.data.stagedUploadsCreate.stagedTargets[0];
+
+  // 3. Datei hochladen
+  const formData = new FormData();
+  stagedTarget.parameters.forEach(p => formData.append(p.name, p.value));
+  formData.append('file', new Blob([buffer]), filename);
+
+  await fetch(stagedTarget.url, {
+    method: 'POST',
+    body: formData
+  });
+
+  // 4. Datei in Shopify registrieren
+  const fileCreate = await fetch(graphqlUrl, {
+    method: 'POST',
+    headers: { 'X-Shopify-Access-Token': accessToken },
+    body: JSON.stringify({
+      query: fileCreateMutation,
+      variables: {
+        files: [{
+          alt: filename,
+          contentType: 'IMAGE',
+          originalSource: stagedTarget.resourceUrl
+        }]
+      }
+    })
+  });
+
+  const fileUrl = fileCreate.data.fileCreate.files[0].image.url;
+
+  return NextResponse.json({ success: true, url: fileUrl });
+}
+```
+
+---
+
+## Fehlerbehandlung
+
+Alle Routen verwenden ein einheitliches Fehlerformat:
+
+```typescript
+// Validation Error (400)
+return NextResponse.json(
+  { error: 'Shop and accessToken are required' },
+  { status: 400 }
+);
+
+// Server Error (500)
+return NextResponse.json(
+  { error: `API request failed: ${error.message}` },
+  { status: 500 }
+);
+```
+
+## Rate Limiting
+
+Shopify hat folgende Limits:
+
+| API | Limit |
+|-----|-------|
+| REST API | 2 Anfragen/Sekunde |
+| GraphQL API | 50 Punkte/Sekunde |
+
+Das Tool fügt automatische Pausen zwischen Anfragen ein:
+
+```typescript
+// In ImportInterface.tsx
+await new Promise(resolve => setTimeout(resolve, 100));
+```

@@ -1,0 +1,327 @@
+# Architektur
+
+Diese Seite erklärt das Systemdesign und die architektonischen Entscheidungen des Import-Tools.
+
+import { Callout } from 'nextra/components'
+
+## Systemübersicht
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                           BROWSER                                   │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │                     React Application                         │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │  │
+│  │  │  Settings   │  │   Import    │  │   Delete    │          │  │
+│  │  │  Component  │  │  Interface  │  │  Interface  │          │  │
+│  │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘          │  │
+│  │         │                │                │                   │  │
+│  │         └────────────────┼────────────────┘                   │  │
+│  │                          │                                    │  │
+│  │  ┌───────────────────────┴───────────────────────┐           │  │
+│  │  │              Services Layer                    │           │  │
+│  │  │  ┌─────────────────┐  ┌─────────────────────┐ │           │  │
+│  │  │  │ WordPressClient │  │  ShopifyAPIClient   │ │           │  │
+│  │  │  │   (Direct)      │  │  (via API Routes)   │ │           │  │
+│  │  │  └────────┬────────┘  └──────────┬──────────┘ │           │  │
+│  │  └───────────┼──────────────────────┼────────────┘           │  │
+│  └──────────────┼──────────────────────┼────────────────────────┘  │
+│                 │                      │                           │
+└─────────────────┼──────────────────────┼───────────────────────────┘
+                  │                      │
+                  ▼                      ▼
+┌─────────────────────────┐    ┌─────────────────────────────────────┐
+│                         │    │         NEXT.JS SERVER              │
+│   WORDPRESS SERVER      │    │  ┌───────────────────────────────┐  │
+│                         │    │  │        API Routes             │  │
+│   /wp-json/wp/v2/       │    │  │  /api/shopify/articles        │  │
+│   ├── posts             │    │  │  /api/shopify/blogs           │  │
+│   ├── media             │    │  │  /api/shopify/test            │  │
+│   └── ...               │    │  │  /api/shopify/upload-image    │  │
+│                         │    │  └──────────────┬────────────────┘  │
+└─────────────────────────┘    │                 │                   │
+                               │                 ▼                   │
+                               │  ┌───────────────────────────────┐  │
+                               │  │      SHOPIFY ADMIN API        │  │
+                               │  │  REST: /admin/api/2023-10/    │  │
+                               │  │  GraphQL: /admin/api/2024-01/ │  │
+                               │  └───────────────────────────────┘  │
+                               └─────────────────────────────────────┘
+```
+
+## Architektur-Entscheidungen
+
+### Warum Next.js App Router?
+
+| Vorteil | Erklärung |
+|---------|-----------|
+| **API Routes** | Server-seitige Endpunkte ohne separaten Backend-Server |
+| **React Server Components** | Potenzial für SSR (hier nicht genutzt, aber erweiterbar) |
+| **File-based Routing** | Einfache Struktur für API-Endpunkte |
+| **TypeScript Support** | Eingebaut, keine zusätzliche Konfiguration |
+
+### Warum Client Components?
+
+Die Hauptseite (`app/page.tsx`) ist ein Client Component (`'use client'`), weil:
+
+1. **Interaktivität**: Tabs, Formulare, Checkboxen erfordern Client-State
+2. **localStorage**: Konfiguration wird im Browser gespeichert
+3. **Real-time Updates**: Fortschrittsanzeige während des Imports
+
+```typescript
+// app/page.tsx
+'use client';  // Markiert als Client Component
+
+export default function Home() {
+  const [config, setConfig] = useState<ImportConfig>({...});
+  // ...
+}
+```
+
+### Warum API Routes für Shopify?
+
+<Callout type="warning">
+  Der Shopify Access Token darf **niemals** im Browser exponiert werden!
+</Callout>
+
+**Problem ohne API Routes:**
+```typescript
+// ❌ UNSICHER - Token im Browser sichtbar
+fetch('https://shop.myshopify.com/admin/api/...', {
+  headers: {
+    'X-Shopify-Access-Token': 'shpat_xxx'  // Im Browser-DevTools sichtbar!
+  }
+});
+```
+
+**Lösung mit API Routes:**
+```typescript
+// ✅ SICHER - Token bleibt auf dem Server
+// Client sendet an eigenen Server
+fetch('/api/shopify/articles', {
+  body: JSON.stringify({
+    shop: 'myshop',
+    accessToken: 'shpat_xxx',  // Wird an Server gesendet
+    action: 'getAll'
+  })
+});
+
+// Server macht den eigentlichen API-Call
+// Token ist nie im Browser-Netzwerk-Tab sichtbar
+```
+
+### Warum Axios für WordPress, Fetch für Shopify?
+
+| API | Library | Grund |
+|-----|---------|-------|
+| WordPress | Axios | Einfache Basic Auth Konfiguration, Interceptors |
+| Shopify | Fetch | Native API, keine zusätzliche Dependency auf Server |
+
+## Datenmodell
+
+### Konfiguration (ImportConfig)
+
+```typescript
+interface ImportConfig {
+  // WordPress
+  wordpressUrl: string;
+  wordpressUsername?: string;
+  wordpressPassword?: string;
+
+  // Shopify
+  shopifyShop: string;
+  shopifyAccessToken: string;
+  blogId: string;
+
+  // Import-Optionen
+  batchSize: number;
+  importImages: boolean;
+  preserveSlug: boolean;
+  defaultAuthor: string;
+  importTags: boolean;
+  importCategories: boolean;
+}
+```
+
+**Speicherort:** `localStorage` im Browser
+
+**Key:** `shopify-blog-import-config`
+
+### WordPress Post
+
+```typescript
+interface WordPressPost {
+  id: number;
+  date: string;
+  slug: string;
+  featured_media: number;
+  title: { rendered: string };
+  content: { rendered: string };
+  excerpt: { rendered: string };
+  _embedded?: {
+    author?: [...];
+    'wp:term'?: [...];      // Tags & Kategorien
+    'wp:featuredmedia'?: [...];  // Featured Image
+  };
+}
+```
+
+### Shopify Blog Post
+
+```typescript
+interface ShopifyBlogPost {
+  title: string;
+  content: string;           // body_html in Shopify API
+  summary?: string;
+  author?: string;
+  published_at?: string;
+  tags?: string;             // Komma-separiert
+  handle?: string;           // URL-Slug
+  image?: {
+    src: string;
+    alt?: string;
+  };
+}
+```
+
+## Komponenten-Hierarchie
+
+```
+app/page.tsx (Home)
+├── State: config, activeTab, deleteLogs
+├── Callbacks: handleConfigChange, addDeleteLog
+│
+├── components/Settings.tsx
+│   ├── Props: config, onConfigChange
+│   ├── Local State: wpConnected, shopifyConnected, blogs, testing
+│   └── Services: WordPressClient, ShopifyAPIClient
+│
+├── components/ImportInterface.tsx
+│   ├── Props: config
+│   ├── Local State: posts, selectedPosts, progress, statistics, logs
+│   ├── Services: WordPressClient, ShopifyAPIClient, ImageProcessor
+│   └── Sub-Components:
+│       ├── ImportStatisticsComponent
+│       └── ImportLogComponent
+│
+└── components/DeleteInterface.tsx
+    ├── Props: config, onLog
+    ├── Local State: articles, selectedArticles, deleting
+    └── Services: ShopifyAPIClient
+```
+
+## Fehlerbehandlung
+
+### Strategie: Graceful Degradation
+
+Das Tool versucht immer, weiterzumachen, auch wenn einzelne Operationen fehlschlagen.
+
+**Beispiel: Bild-Upload**
+
+```typescript
+// image-processor.ts
+static async uploadImageToShopify(...): Promise<string | null> {
+  try {
+    // Upload versuchen
+    const response = await fetch('/api/shopify/upload-image', {...});
+    if (response.ok) {
+      return data.url;  // Erfolg: Shopify-URL
+    }
+    return null;  // Fehler: null zurückgeben
+  } catch (error) {
+    console.error('Upload failed:', error);
+    return null;  // Fehler: null zurückgeben
+  }
+}
+
+// Aufrufender Code
+const shopifyUrl = await ImageProcessor.uploadImageToShopify(...);
+if (shopifyUrl) {
+  // Shopify-URL verwenden
+} else {
+  // Fallback: Original-URL verwenden
+  console.warn('Using original URL as fallback');
+}
+```
+
+### Error Logging
+
+Fehler werden auf mehreren Ebenen geloggt:
+
+1. **Console**: Für Entwickler (`console.error`)
+2. **Import-Log**: Für Benutzer (UI-Komponente)
+3. **Progress.errors**: Für Zusammenfassung
+
+## Performance-Überlegungen
+
+### Batch-Verarbeitung
+
+Artikel werden einzeln importiert, nicht in Batches, weil:
+
+1. **Fortschrittsanzeige**: Benutzer sieht jeden Artikel
+2. **Fehler-Isolation**: Ein Fehler stoppt nicht den gesamten Import
+3. **Rate Limiting**: Shopify erlaubt nur ~2 Anfragen/Sekunde
+
+```typescript
+for (const post of selectedPostList) {
+  // Einzeln verarbeiten
+  await processPost(post);
+
+  // Kurze Pause für Rate Limiting
+  await new Promise(resolve => setTimeout(resolve, 100));
+}
+```
+
+### Existenz-Check Optimierung
+
+Statt jeden Artikel einzeln zu prüfen, werden alle Handles auf einmal geprüft:
+
+```typescript
+// ❌ Langsam: N API-Calls
+for (const post of posts) {
+  const exists = await checkPostExists(post.slug);
+}
+
+// ✅ Schnell: 1 API-Call
+const existingPosts = await checkMultiplePostsExist(
+  blogId,
+  posts.map(p => p.slug)
+);
+```
+
+## Sicherheit
+
+### Geschützte Daten
+
+| Datum | Schutz |
+|-------|--------|
+| Shopify Access Token | Nur über API Routes, nie im Browser |
+| WordPress Passwort | Im localStorage (lokal), über HTTPS übertragen |
+
+### Keine serverseitige Speicherung
+
+Das Tool speichert **keine** Zugangsdaten auf dem Server. Alles bleibt im Browser des Benutzers.
+
+## Erweiterbarkeit
+
+### Neue Import-Quelle hinzufügen
+
+1. Neuen Client in `lib/services/` erstellen
+2. Neues Interface in `lib/types.ts` definieren
+3. Konvertierungsfunktion implementieren
+4. UI-Komponente anpassen
+
+### Neues Ziel hinzufügen
+
+1. Neue API Routes erstellen
+2. Neuen API-Client erstellen
+3. Konvertierungsfunktion anpassen
+
+## Bekannte Limitierungen
+
+| Limitierung | Grund | Workaround |
+|-------------|-------|------------|
+| Keine parallelen Imports | Rate Limiting, Fehler-Isolation | Batch-Größe erhöhen |
+| Kein Offline-Mode | Benötigt Live-Verbindung zu APIs | - |
+| Keine Undo-Funktion | Komplexität, API-Limitierungen | Manuell in Shopify löschen |
+| Browser-Abhängig | localStorage, Client-Rendering | - |
