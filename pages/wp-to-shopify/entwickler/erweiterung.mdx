@@ -1,0 +1,651 @@
+# Erweiterung & Anpassung
+
+Anleitung zum Erweitern und Anpassen des Import-Tools.
+
+import { Callout, Steps, Tabs } from 'nextra/components'
+
+## Übersicht
+
+Das Tool ist modular aufgebaut und kann einfach erweitert werden:
+
+| Erweiterung | Schwierigkeit | Dateien |
+|-------------|---------------|---------|
+| Neues Config-Feld | Einfach | `types.ts`, `Settings.tsx`, `page.tsx` |
+| Neue Import-Option | Mittel | `ImportInterface.tsx` |
+| Neue API-Route | Mittel | `app/api/shopify/[name]/route.ts` |
+| Neuer Service | Mittel | `lib/services/[name].ts` |
+| Neue Ziel-Plattform | Komplex | Mehrere Dateien |
+
+---
+
+## Neues Konfigurationsfeld hinzufügen
+
+Beispiel: Ein Feld für "Veröffentlichungsstatus" hinzufügen.
+
+<Steps>
+
+### 1. TypeScript-Typ erweitern
+
+```typescript
+// lib/types.ts
+export interface ImportConfig {
+  // ... bestehende Felder ...
+
+  // NEU:
+  publishStatus: 'draft' | 'published';
+}
+```
+
+### 2. Default-Wert setzen
+
+```typescript
+// app/page.tsx
+const [config, setConfig] = useState<ImportConfig>({
+  // ... bestehende Felder ...
+
+  // NEU:
+  publishStatus: 'published',
+});
+```
+
+### 3. UI-Element erstellen
+
+```tsx
+// components/Settings.tsx
+<div className="mt-4">
+  <label className="block text-sm font-medium text-gray-700">
+    Veröffentlichungsstatus
+  </label>
+  <select
+    value={config.publishStatus}
+    onChange={(e) => onConfigChange({
+      ...config,
+      publishStatus: e.target.value as 'draft' | 'published'
+    })}
+    className="mt-1 block w-full rounded-md border-gray-300"
+  >
+    <option value="published">Veröffentlicht</option>
+    <option value="draft">Entwurf</option>
+  </select>
+</div>
+```
+
+### 4. Im Import verwenden
+
+```typescript
+// components/ImportInterface.tsx
+const convertWordPressToShopify = async (wpPost) => {
+  return {
+    // ... andere Felder ...
+
+    // NEU: published_at nur setzen wenn "published"
+    published_at: config.publishStatus === 'published'
+      ? wpPost.date
+      : undefined,
+  };
+};
+```
+
+</Steps>
+
+---
+
+## Neue Import-Quelle hinzufügen
+
+Beispiel: Artikel von einer anderen CMS-Plattform importieren.
+
+<Steps>
+
+### 1. TypeScript-Interfaces definieren
+
+```typescript
+// lib/types.ts
+
+// Datenstruktur der Quell-Plattform
+export interface GhostPost {
+  id: string;
+  title: string;
+  html: string;
+  slug: string;
+  published_at: string;
+  feature_image?: string;
+  tags?: Array<{ name: string }>;
+}
+
+// Erweiterte Config
+export interface ImportConfig {
+  // ... bestehende Felder ...
+
+  // NEU:
+  importSource: 'wordpress' | 'ghost';
+  ghostUrl?: string;
+  ghostApiKey?: string;
+}
+```
+
+### 2. Neuen Service erstellen
+
+```typescript
+// lib/services/ghost.ts
+import type { GhostPost } from '../types';
+
+export class GhostClient {
+  private baseUrl: string;
+  private apiKey: string;
+
+  constructor(baseUrl: string, apiKey: string) {
+    this.baseUrl = baseUrl.replace(/\/$/, '');
+    this.apiKey = apiKey;
+  }
+
+  async testConnection(): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/ghost/api/content/posts/?key=${this.apiKey}&limit=1`
+      );
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async getPosts(page = 1, limit = 15): Promise<{
+    posts: GhostPost[];
+    total: number;
+  }> {
+    const response = await fetch(
+      `${this.baseUrl}/ghost/api/content/posts/?key=${this.apiKey}&page=${page}&limit=${limit}&include=tags`
+    );
+
+    const data = await response.json();
+    return {
+      posts: data.posts,
+      total: data.meta.pagination.total,
+    };
+  }
+}
+```
+
+### 3. Konvertierungsfunktion erstellen
+
+```typescript
+// lib/services/converters.ts
+import type { GhostPost, ShopifyBlogPost, ImportConfig } from '../types';
+
+export function convertGhostToShopify(
+  post: GhostPost,
+  config: ImportConfig
+): ShopifyBlogPost {
+  return {
+    title: post.title,
+    content: post.html,
+    published_at: post.published_at,
+    handle: config.preserveSlug ? post.slug : undefined,
+    tags: post.tags?.map(t => t.name).join(', '),
+    author: config.defaultAuthor,
+    image: post.feature_image ? {
+      src: post.feature_image,
+      alt: post.title
+    } : undefined,
+  };
+}
+```
+
+### 4. Settings erweitern
+
+```tsx
+// components/Settings.tsx
+
+// Import-Quelle auswählen
+<div className="mb-4">
+  <label>Import-Quelle</label>
+  <select
+    value={config.importSource}
+    onChange={(e) => onConfigChange({
+      ...config,
+      importSource: e.target.value
+    })}
+  >
+    <option value="wordpress">WordPress</option>
+    <option value="ghost">Ghost</option>
+  </select>
+</div>
+
+// Ghost-spezifische Felder anzeigen
+{config.importSource === 'ghost' && (
+  <div>
+    <input
+      placeholder="Ghost URL"
+      value={config.ghostUrl}
+      onChange={(e) => onConfigChange({...config, ghostUrl: e.target.value})}
+    />
+    <input
+      placeholder="Content API Key"
+      value={config.ghostApiKey}
+      onChange={(e) => onConfigChange({...config, ghostApiKey: e.target.value})}
+    />
+  </div>
+)}
+```
+
+### 5. ImportInterface anpassen
+
+```typescript
+// components/ImportInterface.tsx
+import { WordPressClient } from '@/lib/services/wordpress';
+import { GhostClient } from '@/lib/services/ghost';
+import { convertGhostToShopify } from '@/lib/services/converters';
+
+const loadPosts = async () => {
+  if (config.importSource === 'wordpress') {
+    const client = new WordPressClient(config.wordpressUrl, ...);
+    const { posts } = await client.getPosts(page, 50, true);
+    setPosts(posts);
+  } else if (config.importSource === 'ghost') {
+    const client = new GhostClient(config.ghostUrl, config.ghostApiKey);
+    const { posts } = await client.getPosts(page, 50);
+    // Konvertieren zu einheitlichem Format für die UI
+    setPosts(posts.map(normalizeGhostPost));
+  }
+};
+```
+
+</Steps>
+
+---
+
+## Neue API-Route erstellen
+
+Beispiel: Endpunkt für Shopify-Metafields.
+
+<Steps>
+
+### 1. Route-Datei erstellen
+
+```typescript
+// app/api/shopify/metafields/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  try {
+    const { shop, accessToken, articleId, metafield } = await request.json();
+
+    if (!shop || !accessToken || !articleId || !metafield) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    const cleanShop = shop.replace(/\.myshopify\.com$/, '');
+    const url = `https://${cleanShop}.myshopify.com/admin/api/2023-10/articles/${articleId}/metafields.json`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-Shopify-Access-Token': accessToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ metafield }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      return NextResponse.json({ error }, { status: response.status });
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+
+  } catch (error) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
+  }
+}
+```
+
+### 2. Client-Methode hinzufügen
+
+```typescript
+// lib/services/shopify-api.ts
+export class ShopifyAPIClient {
+  // ... bestehende Methoden ...
+
+  async createMetafield(
+    articleId: string,
+    namespace: string,
+    key: string,
+    value: string,
+    type: string = 'single_line_text_field'
+  ): Promise<any> {
+    const response = await fetch('/api/shopify/metafields', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shop: this.shop,
+        accessToken: this.accessToken,
+        articleId,
+        metafield: {
+          namespace,
+          key,
+          value,
+          type,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create metafield');
+    }
+
+    return await response.json();
+  }
+}
+```
+
+### 3. Im Import verwenden
+
+```typescript
+// Nach erfolgreichem Artikel-Import
+const article = await shopifyClient.createBlogPost(blogId, shopifyPost);
+
+// Metafield für Original-WordPress-ID speichern
+await shopifyClient.createMetafield(
+  article.id,
+  'wordpress',
+  'original_id',
+  wpPost.id.toString()
+);
+```
+
+</Steps>
+
+---
+
+## Styling anpassen
+
+### Tailwind-Konfiguration
+
+```javascript
+// tailwind.config.js
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        // Eigene Markenfarben
+        brand: {
+          50: '#f0f9ff',
+          500: '#0ea5e9',
+          600: '#0284c7',
+        },
+      },
+    },
+  },
+};
+```
+
+### Komponenten anpassen
+
+```tsx
+// Vor: Standard Blau
+<button className="bg-blue-600 hover:bg-blue-700">
+
+// Nach: Markenfarbe
+<button className="bg-brand-500 hover:bg-brand-600">
+```
+
+### Dark Mode (optional)
+
+```tsx
+// Layout mit Dark Mode Support
+<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+  <h1 className="text-gray-900 dark:text-white">
+```
+
+---
+
+## Logging erweitern
+
+### Detailliertes Logging hinzufügen
+
+```typescript
+// lib/services/logger.ts
+export enum LogLevel {
+  DEBUG = 0,
+  INFO = 1,
+  WARN = 2,
+  ERROR = 3,
+}
+
+class Logger {
+  private level: LogLevel = LogLevel.INFO;
+
+  setLevel(level: LogLevel) {
+    this.level = level;
+  }
+
+  debug(message: string, data?: any) {
+    if (this.level <= LogLevel.DEBUG) {
+      console.log(`[DEBUG] ${message}`, data);
+    }
+  }
+
+  info(message: string, data?: any) {
+    if (this.level <= LogLevel.INFO) {
+      console.log(`[INFO] ${message}`, data);
+    }
+  }
+
+  warn(message: string, data?: any) {
+    if (this.level <= LogLevel.WARN) {
+      console.warn(`[WARN] ${message}`, data);
+    }
+  }
+
+  error(message: string, data?: any) {
+    if (this.level <= LogLevel.ERROR) {
+      console.error(`[ERROR] ${message}`, data);
+    }
+  }
+}
+
+export const logger = new Logger();
+```
+
+### Im Service verwenden
+
+```typescript
+// lib/services/wordpress.ts
+import { logger } from './logger';
+
+export class WordPressClient {
+  async getPosts(...) {
+    logger.debug('Fetching posts', { page, perPage });
+
+    try {
+      const response = await this.client.get('/posts', { params });
+      logger.info(`Loaded ${response.data.length} posts`);
+      return response.data;
+    } catch (error) {
+      logger.error('Failed to fetch posts', error);
+      throw error;
+    }
+  }
+}
+```
+
+---
+
+## Tests hinzufügen
+
+<Callout type="info">
+  Das Projekt hat aktuell keine Test-Infrastruktur. Hier ist eine Anleitung zum Einrichten.
+</Callout>
+
+### Jest einrichten
+
+```bash
+npm install --save-dev jest @types/jest ts-jest @testing-library/react @testing-library/jest-dom
+```
+
+### Jest-Konfiguration
+
+```javascript
+// jest.config.js
+module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'jsdom',
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/$1',
+  },
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+};
+```
+
+### Beispiel-Test
+
+```typescript
+// __tests__/services/wordpress.test.ts
+import { WordPressClient } from '@/lib/services/wordpress';
+
+describe('WordPressClient', () => {
+  it('should normalize URL', () => {
+    const client = new WordPressClient('https://example.com/');
+    expect(client['baseUrl']).toBe('https://example.com');
+  });
+
+  it('should test connection', async () => {
+    // Mock fetch
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve([{ id: 1 }]),
+      })
+    ) as jest.Mock;
+
+    const client = new WordPressClient('https://example.com');
+    const connected = await client.testConnection();
+
+    expect(connected).toBe(true);
+  });
+});
+```
+
+### Test ausführen
+
+```bash
+npm test
+```
+
+---
+
+## Nützliche Code-Snippets
+
+### Retry-Logik
+
+```typescript
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  delay = 1000
+): Promise<T> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      await new Promise(r => setTimeout(r, delay * (i + 1)));
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
+// Verwendung
+const result = await withRetry(
+  () => shopifyClient.createBlogPost(blogId, post),
+  3,
+  2000
+);
+```
+
+### Rate Limiter
+
+```typescript
+class RateLimiter {
+  private queue: Array<() => void> = [];
+  private running = 0;
+
+  constructor(
+    private maxConcurrent: number,
+    private minDelay: number
+  ) {}
+
+  async execute<T>(fn: () => Promise<T>): Promise<T> {
+    while (this.running >= this.maxConcurrent) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    this.running++;
+
+    try {
+      const result = await fn();
+      await new Promise(r => setTimeout(r, this.minDelay));
+      return result;
+    } finally {
+      this.running--;
+    }
+  }
+}
+
+// Verwendung
+const limiter = new RateLimiter(2, 500); // Max 2 gleichzeitig, 500ms Pause
+
+for (const post of posts) {
+  await limiter.execute(() => importPost(post));
+}
+```
+
+### Progress-Tracking mit Events
+
+```typescript
+// Event-basiertes Progress Tracking
+type ProgressEvent = {
+  type: 'start' | 'progress' | 'complete' | 'error';
+  current?: number;
+  total?: number;
+  message?: string;
+  error?: Error;
+};
+
+type ProgressCallback = (event: ProgressEvent) => void;
+
+async function importWithProgress(
+  posts: Post[],
+  onProgress: ProgressCallback
+) {
+  onProgress({ type: 'start', total: posts.length });
+
+  for (let i = 0; i < posts.length; i++) {
+    try {
+      await importPost(posts[i]);
+      onProgress({
+        type: 'progress',
+        current: i + 1,
+        total: posts.length,
+        message: `Imported: ${posts[i].title}`
+      });
+    } catch (error) {
+      onProgress({
+        type: 'error',
+        current: i + 1,
+        error: error as Error
+      });
+    }
+  }
+
+  onProgress({ type: 'complete' });
+}
+```

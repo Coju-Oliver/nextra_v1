@@ -1,0 +1,205 @@
+# Entwickler-Dokumentation
+
+Willkommen zur Entwickler-Dokumentation des WordPress zu Shopify Blog Import Tools.
+
+import { Cards, Card, Callout } from 'nextra/components'
+
+## Für wen ist diese Dokumentation?
+
+Diese Dokumentation richtet sich an Entwickler, die:
+
+- Den Code verstehen möchten
+- Das Tool erweitern oder anpassen wollen
+- Bugs beheben müssen
+- Ähnliche Projekte entwickeln wollen
+
+<Callout type="info">
+  Für die Benutzer-Dokumentation (Installation, Bedienung) siehe die [Hauptdokumentation](/).
+</Callout>
+
+## Technologie-Stack
+
+| Bereich | Technologie |
+|---------|-------------|
+| **Framework** | Next.js 15 (App Router) |
+| **Frontend** | React 19 |
+| **Sprache** | TypeScript 5 |
+| **Styling** | Tailwind CSS 3 |
+| **HTTP** | Axios (WordPress), Fetch API (Shopify) |
+| **Icons** | Lucide React |
+
+## Schnellstart für Entwickler
+
+```bash
+# Repository klonen
+git clone [REPO_URL]
+cd wp-to-shopify
+
+# Dependencies installieren
+npm install
+
+# Entwicklungsserver starten
+npm run dev
+
+# TypeScript-Check
+npx tsc --noEmit
+
+# Linting
+npm run lint
+
+# Production Build
+npm run build
+```
+
+## Projektstruktur auf einen Blick
+
+```
+wp-to-shopify/
+├── app/                      # Next.js App Router
+│   ├── page.tsx              # Hauptseite (Client Component)
+│   ├── layout.tsx            # Root Layout
+│   ├── globals.css           # Globale Styles
+│   └── api/shopify/          # API Routes (Server)
+│       ├── articles/route.ts # Artikel CRUD
+│       ├── blogs/route.ts    # Blogs laden
+│       ├── test/route.ts     # Verbindungstest
+│       └── upload-image/route.ts # Bild-Upload
+│
+├── components/               # React-Komponenten
+│   ├── Settings.tsx          # Einstellungen-Tab
+│   ├── ImportInterface.tsx   # Import-Tab
+│   ├── DeleteInterface.tsx   # Löschen-Tab
+│   ├── ImportLog.tsx         # Log-Anzeige
+│   └── ImportStatistics.tsx  # Statistik-Anzeige
+│
+├── lib/                      # Shared Code
+│   ├── types.ts              # TypeScript-Definitionen
+│   └── services/             # API-Clients
+│       ├── wordpress.ts      # WordPress REST API
+│       ├── shopify-api.ts    # Shopify API (via Server)
+│       ├── shopify.ts        # Hilfsfunktionen
+│       └── image-processor.ts # Bild-Verarbeitung
+│
+└── Dokumentation/            # Diese Dokumentation
+```
+
+## Kernkonzepte
+
+### 1. Client-Server-Trennung
+
+- **WordPress API**: Direkt vom Client aufgerufen (öffentliche API)
+- **Shopify API**: Über Next.js API Routes (schützt Access Token)
+
+### 2. Zustandsverwaltung
+
+- React `useState` für lokalen Zustand
+- `localStorage` für persistente Konfiguration
+- Keine externe State-Library (Redux etc.)
+
+### 3. Bild-Upload
+
+- Bilder werden serverseitig verarbeitet
+- Upload über Shopify GraphQL API (Staged Uploads)
+- Fallback auf URL-Verlinkung bei Fehlern
+
+## Dokumentations-Übersicht
+
+<Cards>
+  <Card title="Architektur" href="/entwickler/architektur">
+    Systemdesign, Datenfluss, Entscheidungen
+  </Card>
+  <Card title="API-Routen" href="/entwickler/api-routen">
+    Server-Endpunkte im Detail
+  </Card>
+  <Card title="Services" href="/entwickler/services">
+    WordPress, Shopify, ImageProcessor
+  </Card>
+  <Card title="Komponenten" href="/entwickler/komponenten">
+    React-Komponenten erklärt
+  </Card>
+  <Card title="Datenfluss" href="/entwickler/datenfluss">
+    Wie Daten durch das System fließen
+  </Card>
+  <Card title="Erweiterung" href="/entwickler/erweiterung">
+    Das Tool anpassen und erweitern
+  </Card>
+  <Card title="Deployment" href="/entwickler/deployment">
+    Production-Deployment Optionen
+  </Card>
+</Cards>
+
+## Wichtige Dateien
+
+| Datei | Beschreibung | Wichtigkeit |
+|-------|-------------|-------------|
+| `app/page.tsx` | Einstiegspunkt, Tab-Navigation, Config-State | ⭐⭐⭐ |
+| `components/ImportInterface.tsx` | Kernlogik des Imports | ⭐⭐⭐ |
+| `lib/services/shopify-api.ts` | Shopify-Kommunikation | ⭐⭐⭐ |
+| `lib/services/image-processor.ts` | Bild-Upload-Logik | ⭐⭐ |
+| `app/api/shopify/articles/route.ts` | Artikel-API | ⭐⭐⭐ |
+| `app/api/shopify/upload-image/route.ts` | Bild-Upload-API | ⭐⭐ |
+| `lib/types.ts` | TypeScript-Typen | ⭐⭐ |
+
+## Entwicklungs-Workflow
+
+### 1. Feature entwickeln
+
+```bash
+# Neuen Branch erstellen
+git checkout -b feature/mein-feature
+
+# Entwickeln mit Hot Reload
+npm run dev
+
+# Änderungen testen
+# Browser: http://localhost:3000
+```
+
+### 2. Code prüfen
+
+```bash
+# TypeScript-Fehler prüfen
+npx tsc --noEmit
+
+# ESLint ausführen
+npm run lint
+
+# Build testen
+npm run build
+```
+
+### 3. Commit erstellen
+
+```bash
+git add .
+git commit -m "feat: Beschreibung der Änderung"
+```
+
+## Debugging
+
+### Browser DevTools
+
+1. `F12` öffnen
+2. **Console**: JavaScript-Fehler und Logs
+3. **Network**: API-Anfragen prüfen
+4. **Application** → **Local Storage**: Gespeicherte Konfiguration
+
+### Server-Logs
+
+Logs erscheinen im Terminal, in dem `npm run dev` läuft.
+
+```typescript
+// Beispiel: Debug-Logging hinzufügen
+console.log('Debug:', { variable, anotherVariable });
+```
+
+## Häufige Entwickler-Aufgaben
+
+| Aufgabe | Wo anfangen |
+|---------|-------------|
+| Neues Feld zur Config hinzufügen | `lib/types.ts` → `Settings.tsx` → `page.tsx` |
+| Neuen API-Endpunkt erstellen | `app/api/shopify/[name]/route.ts` |
+| Import-Logik ändern | `components/ImportInterface.tsx` |
+| Shopify-Interaktion ändern | `lib/services/shopify-api.ts` + `app/api/shopify/` |
+| WordPress-Interaktion ändern | `lib/services/wordpress.ts` |
+| Styling anpassen | Tailwind-Klassen in Komponenten |

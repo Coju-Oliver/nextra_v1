@@ -1,0 +1,628 @@
+# Komponenten
+
+Dokumentation der React-Komponenten in `components/`.
+
+import { Callout } from 'nextra/components'
+
+## Übersicht
+
+| Komponente | Datei | Beschreibung |
+|------------|-------|--------------|
+| `Home` | `app/page.tsx` | Hauptseite mit Tab-Navigation |
+| `Settings` | `Settings.tsx` | Konfiguration WordPress/Shopify |
+| `ImportInterface` | `ImportInterface.tsx` | Import-Workflow |
+| `DeleteInterface` | `DeleteInterface.tsx` | Artikel löschen |
+| `ImportStatisticsComponent` | `ImportStatistics.tsx` | Statistik-Anzeige |
+| `ImportLogComponent` | `ImportLog.tsx` | Log-Anzeige |
+
+---
+
+## Home (app/page.tsx)
+
+Die Hauptkomponente der Anwendung.
+
+### Verantwortlichkeiten
+
+- Tab-Navigation (Einstellungen, Import, Löschen)
+- Globaler Config-State
+- localStorage Persistenz
+
+### State
+
+```typescript
+const [activeTab, setActiveTab] = useState<'settings' | 'import' | 'delete'>('settings');
+const [deleteLogs, setDeleteLogs] = useState<ImportLog[]>([]);
+const [config, setConfig] = useState<ImportConfig>({
+  wordpressUrl: '',
+  wordpressUsername: '',
+  wordpressPassword: '',
+  shopifyShop: '',
+  shopifyAccessToken: '',
+  blogId: '',
+  batchSize: 10,
+  importImages: false,
+  preserveSlug: true,
+  defaultAuthor: 'Admin',
+  importTags: true,
+  importCategories: true
+});
+```
+
+### Config Persistenz
+
+```typescript
+// Beim Laden aus localStorage lesen
+useEffect(() => {
+  const savedConfig = localStorage.getItem('shopify-blog-import-config');
+  if (savedConfig) {
+    setConfig(JSON.parse(savedConfig));
+  }
+}, []);
+
+// Beim Ändern in localStorage speichern
+const handleConfigChange = (newConfig: ImportConfig) => {
+  setConfig(newConfig);
+  localStorage.setItem('shopify-blog-import-config', JSON.stringify(newConfig));
+};
+```
+
+### Rendering
+
+```tsx
+return (
+  <div className="min-h-screen bg-gray-50">
+    <header>...</header>
+
+    <main>
+      {/* Tab Navigation */}
+      <nav>
+        <button onClick={() => setActiveTab('settings')}>Einstellungen</button>
+        <button onClick={() => setActiveTab('import')}>Import</button>
+        <button onClick={() => setActiveTab('delete')}>Löschen</button>
+      </nav>
+
+      {/* Tab Content */}
+      {activeTab === 'settings' && (
+        <Settings config={config} onConfigChange={handleConfigChange} />
+      )}
+      {activeTab === 'import' && (
+        <ImportInterface config={config} />
+      )}
+      {activeTab === 'delete' && (
+        <DeleteInterface config={config} onLog={addDeleteLog} />
+      )}
+    </main>
+
+    <footer>...</footer>
+  </div>
+);
+```
+
+---
+
+## Settings
+
+Konfigurationsformular für WordPress und Shopify.
+
+### Props
+
+```typescript
+interface SettingsProps {
+  config: ImportConfig;
+  onConfigChange: (config: ImportConfig) => void;
+}
+```
+
+### State
+
+```typescript
+const [wpConnected, setWpConnected] = useState(false);
+const [shopifyConnected, setShopifyConnected] = useState(false);
+const [blogs, setBlogs] = useState<Blog[]>([]);
+const [testingWp, setTestingWp] = useState(false);
+const [testingShopify, setTestingShopify] = useState(false);
+```
+
+### Hauptfunktionen
+
+#### WordPress Verbindungstest
+
+```typescript
+const testWordPressConnection = async () => {
+  setTestingWp(true);
+  try {
+    const client = new WordPressClient(
+      config.wordpressUrl,
+      config.wordpressUsername,
+      config.wordpressPassword
+    );
+    const connected = await client.testConnection();
+    setWpConnected(connected);
+  } catch (error) {
+    setWpConnected(false);
+  } finally {
+    setTestingWp(false);
+  }
+};
+```
+
+#### Shopify Verbindungstest
+
+```typescript
+const testShopifyConnection = async () => {
+  setTestingShopify(true);
+  try {
+    const client = new ShopifyAPIClient(
+      config.shopifyShop,
+      config.shopifyAccessToken
+    );
+    const connected = await client.testConnection();
+    setShopifyConnected(connected);
+
+    if (connected) {
+      // Blogs laden
+      const blogList = await client.getBlogs();
+      setBlogs(blogList);
+    }
+  } catch (error) {
+    setShopifyConnected(false);
+  } finally {
+    setTestingShopify(false);
+  }
+};
+```
+
+### Formular-Struktur
+
+```tsx
+<div className="grid grid-cols-2 gap-6">
+  {/* WordPress Sektion */}
+  <div>
+    <h3>WordPress Konfiguration</h3>
+    <input
+      value={config.wordpressUrl}
+      onChange={(e) => onConfigChange({...config, wordpressUrl: e.target.value})}
+      placeholder="https://meine-seite.de"
+    />
+    <input value={config.wordpressUsername} ... />
+    <input type="password" value={config.wordpressPassword} ... />
+    <button onClick={testWordPressConnection}>
+      {testingWp ? 'Teste...' : 'Verbindung testen'}
+    </button>
+    {wpConnected && <span className="text-green-500">✓ Verbunden</span>}
+  </div>
+
+  {/* Shopify Sektion */}
+  <div>
+    <h3>Shopify Konfiguration</h3>
+    <input value={config.shopifyShop} ... />
+    <input type="password" value={config.shopifyAccessToken} ... />
+    <button onClick={testShopifyConnection}>Verbindung testen</button>
+    {shopifyConnected && (
+      <select
+        value={config.blogId}
+        onChange={(e) => onConfigChange({...config, blogId: e.target.value})}
+      >
+        {blogs.map(blog => (
+          <option key={blog.id} value={blog.id}>{blog.title}</option>
+        ))}
+      </select>
+    )}
+  </div>
+
+  {/* Import-Optionen */}
+  <div className="col-span-2">
+    <h3>Import-Optionen</h3>
+    <label>
+      <input
+        type="checkbox"
+        checked={config.importImages}
+        onChange={(e) => onConfigChange({...config, importImages: e.target.checked})}
+      />
+      Bilder importieren
+    </label>
+    {/* Weitere Optionen... */}
+  </div>
+</div>
+```
+
+---
+
+## ImportInterface
+
+Die Hauptkomponente für den Import-Workflow.
+
+### Props
+
+```typescript
+interface ImportInterfaceProps {
+  config: ImportConfig;
+}
+```
+
+### State
+
+```typescript
+// Posts
+const [posts, setPosts] = useState<WordPressPost[]>([]);
+const [selectedPosts, setSelectedPosts] = useState<Set<number>>(new Set());
+const [existingPosts, setExistingPosts] = useState<{ [handle: string]: boolean }>({});
+
+// Pagination
+const [currentPage, setCurrentPage] = useState(1);
+const [totalPages, setTotalPages] = useState(1);
+
+// Loading States
+const [loading, setLoading] = useState(false);
+const [loadingMore, setLoadingMore] = useState(false);
+
+// Import Progress
+const [progress, setProgress] = useState<ImportProgress>({
+  totalPosts: 0,
+  processedPosts: 0,
+  successfulImports: 0,
+  failedImports: 0,
+  isRunning: false,
+  errors: []
+});
+
+// UI
+const [previewPost, setPreviewPost] = useState<WordPressPost | null>(null);
+const [statistics, setStatistics] = useState<ImportStatistics | null>(null);
+const [logs, setLogs] = useState<ImportLog[]>([]);
+```
+
+### Hauptfunktionen
+
+#### Posts laden
+
+```typescript
+const loadPosts = async (page = 1, append = false) => {
+  setLoading(true);
+
+  const wpClient = new WordPressClient(
+    config.wordpressUrl,
+    config.wordpressUsername,
+    config.wordpressPassword
+  );
+
+  const { posts, total, totalPages } = await wpClient.getPosts(page, 50, true);
+
+  if (append) {
+    setPosts(prev => [...prev, ...posts]);
+  } else {
+    setPosts(posts);
+  }
+
+  setTotalPages(totalPages);
+  setCurrentPage(page);
+  setLoading(false);
+};
+```
+
+#### Statistiken laden
+
+```typescript
+const loadStatistics = async () => {
+  const wpClient = new WordPressClient(...);
+  const shopifyClient = new ShopifyAPIClient(...);
+
+  // Alle WordPress Posts holen
+  const allWpPosts = await getAllWordPressPosts();
+
+  // Prüfen welche bereits importiert sind
+  const handles = allWpPosts.map(post => post.slug);
+  const existingPostsMap = await shopifyClient.checkMultiplePostsExist(
+    config.blogId,
+    handles
+  );
+
+  setExistingPosts(existingPostsMap);
+
+  const alreadyImported = Object.values(existingPostsMap).filter(Boolean).length;
+
+  setStatistics({
+    totalWordPressArticles: allWpPosts.length,
+    alreadyImportedArticles: alreadyImported,
+    newArticlesToImport: allWpPosts.length - alreadyImported
+  });
+};
+```
+
+#### WordPress zu Shopify konvertieren
+
+```typescript
+const convertWordPressToShopify = async (wpPost: WordPressPost): Promise<ShopifyBlogPost> => {
+  // Tags sammeln
+  let allTags: string[] = [];
+  const wpTerms = wpPost._embedded?.['wp:term'];
+  if (wpTerms) {
+    wpTerms.forEach((termGroup, index) => {
+      const isCategory = index === 0;
+      const isTag = index === 1;
+
+      if ((isCategory && config.importCategories) || (isTag && config.importTags)) {
+        termGroup.forEach(term => allTags.push(term.name));
+      }
+    });
+  }
+
+  // Inhalt verarbeiten
+  let content = wpPost.content.rendered;
+  content = content.replace(/<script[^>]*>.*?<\/script>/gi, '');
+  content = content.replace(/<style[^>]*>.*?<\/style>/gi, '');
+
+  // Bilder im Content verarbeiten
+  if (config.importImages) {
+    content = await ImageProcessor.processContentImages(
+      content,
+      config.shopifyShop,
+      config.shopifyAccessToken,
+      config.wordpressUrl
+    );
+  }
+
+  // Featured Image
+  let featuredImage = null;
+  if (config.importImages) {
+    featuredImage = await ImageProcessor.getFeaturedImageFromPost(
+      wpPost,
+      true,
+      config.shopifyShop,
+      config.shopifyAccessToken
+    );
+  }
+
+  return {
+    title: wpPost.title.rendered,
+    content,
+    summary: wpPost.excerpt.rendered.replace(/<[^>]*>/g, '').trim(),
+    author: config.defaultAuthor,
+    published_at: wpPost.date,
+    tags: allTags.join(', '),
+    handle: config.preserveSlug ? wpPost.slug : undefined,
+    image: featuredImage || undefined
+  };
+};
+```
+
+#### Import starten
+
+```typescript
+const startImport = async () => {
+  const selectedPostList = posts.filter(post => selectedPosts.has(post.id));
+
+  setProgress({
+    totalPosts: selectedPostList.length,
+    processedPosts: 0,
+    successfulImports: 0,
+    failedImports: 0,
+    isRunning: true,
+    errors: []
+  });
+
+  const shopifyClient = new ShopifyAPIClient(config.shopifyShop, config.shopifyAccessToken);
+
+  for (let i = 0; i < selectedPostList.length; i++) {
+    const post = selectedPostList[i];
+
+    setProgress(prev => ({
+      ...prev,
+      processedPosts: i + 1,
+      currentPost: post.title.rendered
+    }));
+
+    try {
+      // Prüfen ob existiert
+      if (config.preserveSlug && existingPosts[post.slug]) {
+        addLog('warning', `Post "${post.title.rendered}" existiert bereits`);
+        continue;
+      }
+
+      // Konvertieren und importieren
+      const shopifyPost = await convertWordPressToShopify(post);
+      await shopifyClient.createBlogPost(config.blogId, shopifyPost);
+
+      setProgress(prev => ({
+        ...prev,
+        successfulImports: prev.successfulImports + 1
+      }));
+
+      addLog('success', `"${post.title.rendered}" importiert`);
+
+    } catch (error) {
+      setProgress(prev => ({
+        ...prev,
+        failedImports: prev.failedImports + 1,
+        errors: [...prev.errors, error.message]
+      }));
+
+      addLog('error', `Fehler bei "${post.title.rendered}"`, error);
+    }
+
+    // Rate Limiting Pause
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  setProgress(prev => ({ ...prev, isRunning: false }));
+};
+```
+
+---
+
+## DeleteInterface
+
+Komponente zum Löschen von Shopify-Artikeln.
+
+### Props
+
+```typescript
+interface DeleteInterfaceProps {
+  config: ImportConfig;
+  onLog: (type: string, message: string, details?: any) => void;
+}
+```
+
+### State
+
+```typescript
+const [articles, setArticles] = useState<Article[]>([]);
+const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
+const [loading, setLoading] = useState(false);
+const [deleting, setDeleting] = useState(false);
+```
+
+### Hauptfunktionen
+
+#### Artikel laden
+
+```typescript
+const loadArticles = async () => {
+  setLoading(true);
+  const client = new ShopifyAPIClient(config.shopifyShop, config.shopifyAccessToken);
+  const articles = await client.getAllBlogPosts(config.blogId);
+  setArticles(articles);
+  setLoading(false);
+};
+```
+
+#### Artikel löschen
+
+```typescript
+const deleteSelected = async () => {
+  setDeleting(true);
+  const client = new ShopifyAPIClient(config.shopifyShop, config.shopifyAccessToken);
+
+  const articleIds = Array.from(selectedArticles);
+  const result = await client.deleteMultipleBlogPosts(config.blogId, articleIds);
+
+  onLog('info', `${result.summary.success} Artikel gelöscht, ${result.summary.failed} fehlgeschlagen`);
+
+  // Liste aktualisieren
+  await loadArticles();
+  setSelectedArticles(new Set());
+  setDeleting(false);
+};
+```
+
+---
+
+## ImportStatisticsComponent
+
+Zeigt Import-Statistiken an.
+
+### Props
+
+```typescript
+interface ImportStatisticsProps {
+  statistics: ImportStatistics | null;
+  loading: boolean;
+}
+```
+
+### Rendering
+
+```tsx
+export const ImportStatisticsComponent: React.FC<ImportStatisticsProps> = ({
+  statistics,
+  loading
+}) => {
+  if (loading) {
+    return <div>Statistiken werden geladen...</div>;
+  }
+
+  if (!statistics) {
+    return null;
+  }
+
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      <div className="bg-blue-50 p-4 rounded">
+        <p className="text-2xl font-bold">{statistics.totalWordPressArticles}</p>
+        <p className="text-sm">WordPress Artikel</p>
+      </div>
+      <div className="bg-green-50 p-4 rounded">
+        <p className="text-2xl font-bold">{statistics.alreadyImportedArticles}</p>
+        <p className="text-sm">Bereits importiert</p>
+      </div>
+      <div className="bg-yellow-50 p-4 rounded">
+        <p className="text-2xl font-bold">{statistics.newArticlesToImport}</p>
+        <p className="text-sm">Neu zu importieren</p>
+      </div>
+    </div>
+  );
+};
+```
+
+---
+
+## ImportLogComponent
+
+Zeigt Log-Einträge an.
+
+### Props
+
+```typescript
+interface ImportLogProps {
+  logs: ImportLog[];
+  onClearLogs: () => void;
+}
+```
+
+### Rendering
+
+```tsx
+export const ImportLogComponent: React.FC<ImportLogProps> = ({ logs, onClearLogs }) => {
+  return (
+    <div className="bg-white rounded-lg border">
+      <div className="flex justify-between p-4 border-b">
+        <h3>Import-Log</h3>
+        <button onClick={onClearLogs}>Löschen</button>
+      </div>
+      <div className="max-h-64 overflow-y-auto p-4">
+        {logs.map(log => (
+          <div
+            key={log.id}
+            className={`p-2 mb-2 rounded ${
+              log.type === 'error' ? 'bg-red-50' :
+              log.type === 'warning' ? 'bg-yellow-50' :
+              log.type === 'success' ? 'bg-green-50' :
+              'bg-gray-50'
+            }`}
+          >
+            <span className="text-xs text-gray-500">
+              {new Date(log.timestamp).toLocaleTimeString()}
+            </span>
+            <p>{log.message}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+```
+
+---
+
+## Styling
+
+Alle Komponenten verwenden Tailwind CSS-Klassen.
+
+### Häufig verwendete Patterns
+
+```tsx
+// Card
+<div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+
+// Button Primary
+<button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+
+// Button Danger
+<button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
+
+// Input
+<input className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+
+// Status Badge
+<span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+```

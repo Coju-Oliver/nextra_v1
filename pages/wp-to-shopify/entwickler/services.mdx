@@ -1,0 +1,647 @@
+# Services
+
+Dokumentation der Service-Klassen in `lib/services/`.
+
+import { Callout } from 'nextra/components'
+
+## Übersicht
+
+| Service | Datei | Zweck |
+|---------|-------|-------|
+| `WordPressClient` | `wordpress.ts` | WordPress REST API |
+| `ShopifyAPIClient` | `shopify-api.ts` | Shopify API (via Server) |
+| `ImageProcessor` | `image-processor.ts` | Bild-Verarbeitung |
+
+---
+
+## WordPressClient
+
+Kommuniziert direkt mit der WordPress REST API.
+
+### Datei
+
+`lib/services/wordpress.ts`
+
+### Konstruktor
+
+```typescript
+class WordPressClient {
+  constructor(
+    baseUrl: string,      // z.B. "https://mein-blog.de"
+    username?: string,    // Optional: für Authentifizierung
+    password?: string     // Optional: für Authentifizierung
+  )
+}
+```
+
+### Interne Konfiguration
+
+```typescript
+this.client = axios.create({
+  baseURL: `${this.baseUrl}/wp-json/wp/v2`,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  }
+});
+
+// Basic Auth wenn Credentials vorhanden
+if (username && password) {
+  this.client.defaults.auth = { username, password };
+}
+```
+
+### Methoden
+
+#### `testConnection(): Promise<boolean>`
+
+Testet ob die WordPress REST API erreichbar ist.
+
+```typescript
+async testConnection(): Promise<boolean> {
+  try {
+    const response = await this.client.get('/posts', {
+      params: { per_page: 1 },
+      timeout: 10000
+    });
+    return response.status === 200;
+  } catch (error) {
+    return false;
+  }
+}
+```
+
+---
+
+#### `getPosts(page, perPage, includeEmbedded): Promise<{posts, totalPages, total}>`
+
+Lädt WordPress-Posts mit Pagination.
+
+**Parameter:**
+
+| Parameter | Typ | Default | Beschreibung |
+|-----------|-----|---------|--------------|
+| `page` | `number` | `1` | Seitennummer |
+| `perPage` | `number` | `10` | Posts pro Seite |
+| `includeEmbedded` | `boolean` | `false` | Embedded Daten laden (Autor, Tags, Featured Image) |
+
+**Response:**
+
+```typescript
+{
+  posts: WordPressPost[],
+  totalPages: number,  // Aus Header x-wp-totalpages
+  total: number        // Aus Header x-wp-total
+}
+```
+
+**Implementierung:**
+
+```typescript
+async getPosts(page = 1, perPage = 10, includeEmbedded = false) {
+  const params: any = {
+    page,
+    per_page: perPage,
+    status: 'publish'
+  };
+
+  if (includeEmbedded) {
+    params._embed = '1';  // WordPress liefert dann _embedded Daten
+  }
+
+  const response = await this.client.get('/posts', { params });
+
+  let posts = response.data;
+
+  // Falls Featured Media fehlt, manuell nachladen
+  if (includeEmbedded) {
+    posts = await this.enhancePostsWithMedia(posts);
+  }
+
+  return {
+    posts,
+    totalPages: parseInt(response.headers['x-wp-totalpages'] || '1'),
+    total: parseInt(response.headers['x-wp-total'] || '0')
+  };
+}
+```
+
+<Callout type="info">
+  Der `_embed` Parameter veranlasst WordPress, verknüpfte Daten (Autor, Kategorien, Tags, Featured Image) direkt mitzuliefern.
+</Callout>
+
+---
+
+#### `enhancePostsWithMedia(posts): Promise<WordPressPost[]>`
+
+Private Methode, die fehlende Featured Images nachlädt.
+
+```typescript
+private async enhancePostsWithMedia(posts: WordPressPost[]) {
+  const enhancedPosts = [];
+
+  for (const post of posts) {
+    // Nur wenn featured_media ID vorhanden aber keine embedded Daten
+    if (post.featured_media && !post._embedded?.['wp:featuredmedia']) {
+      const mediaResponse = await this.client.get(`/media/${post.featured_media}`);
+      const mediaData = mediaResponse.data;
+
+      post._embedded = {
+        ...post._embedded,
+        'wp:featuredmedia': [{
+          id: mediaData.id,
+          source_url: mediaData.source_url,
+          alt_text: mediaData.alt_text || '',
+          media_details: mediaData.media_details || {}
+        }]
+      };
+    }
+    enhancedPosts.push(post);
+  }
+
+  return enhancedPosts;
+}
+```
+
+---
+
+#### `getPost(id): Promise<WordPressPost>`
+
+Lädt einen einzelnen Post.
+
+```typescript
+async getPost(id: number): Promise<WordPressPost> {
+  const response = await this.client.get(`/posts/${id}`, {
+    params: { _embed: '1' }
+  });
+  return response.data;
+}
+```
+
+---
+
+## ShopifyAPIClient
+
+Kommuniziert mit Shopify über die lokalen API Routes (nicht direkt).
+
+### Datei
+
+`lib/services/shopify-api.ts`
+
+### Konstruktor
+
+```typescript
+class ShopifyAPIClient {
+  constructor(
+    shop: string,        // z.B. "mein-shop" oder "mein-shop.myshopify.com"
+    accessToken: string  // z.B. "shpat_xxxxx"
+  )
+}
+```
+
+Die Shop-Domain wird normalisiert:
+
+```typescript
+this.shop = shop
+  .replace(/\.myshopify\.com$/, '')
+  .replace(/^https?:\/\//, '');
+// "https://mein-shop.myshopify.com" → "mein-shop"
+```
+
+### Methoden
+
+#### `testConnection(): Promise<boolean>`
+
+```typescript
+async testConnection(): Promise<boolean> {
+  const response = await fetch('/api/shopify/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      shop: this.shop,
+      accessToken: this.accessToken,
+    }),
+  });
+
+  const data = await response.json();
+  return data.connected;
+}
+```
+
+---
+
+#### `getBlogs(): Promise<Blog[]>`
+
+```typescript
+async getBlogs(): Promise<Array<{ id: string; title: string; handle: string }>> {
+  const response = await fetch('/api/shopify/blogs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      shop: this.shop,
+      accessToken: this.accessToken,
+    }),
+  });
+
+  const data = await response.json();
+  return data.blogs;
+}
+```
+
+---
+
+#### `createBlogPost(blogId, post): Promise<any>`
+
+```typescript
+async createBlogPost(blogId: string, post: ShopifyBlogPost): Promise<any> {
+  const response = await fetch('/api/shopify/articles', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      shop: this.shop,
+      accessToken: this.accessToken,
+      blogId,
+      action: 'create',
+      article: post,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to create blog post');
+  }
+
+  const data = await response.json();
+  return data.article;
+}
+```
+
+---
+
+#### `checkPostExists(blogId, handle): Promise<boolean>`
+
+Prüft ob ein Artikel mit gegebenem Handle existiert.
+
+```typescript
+async checkPostExists(blogId: string, handle: string): Promise<boolean> {
+  const response = await fetch('/api/shopify/articles', {
+    method: 'POST',
+    body: JSON.stringify({
+      shop: this.shop,
+      accessToken: this.accessToken,
+      blogId,
+      action: 'checkExists',
+      handle,
+    }),
+  });
+
+  const data = await response.json();
+  return data.exists;
+}
+```
+
+---
+
+#### `checkMultiplePostsExist(blogId, handles): Promise<{[handle]: boolean}>`
+
+Effizientere Variante für mehrere Handles.
+
+```typescript
+async checkMultiplePostsExist(
+  blogId: string,
+  handles: string[]
+): Promise<{ [handle: string]: boolean }> {
+  const response = await fetch('/api/shopify/articles', {
+    method: 'POST',
+    body: JSON.stringify({
+      shop: this.shop,
+      accessToken: this.accessToken,
+      blogId,
+      action: 'checkMultiple',
+      handles,
+    }),
+  });
+
+  const data = await response.json();
+  return data.existingPosts || {};
+}
+```
+
+---
+
+#### `getAllBlogPosts(blogId): Promise<Article[]>`
+
+Lädt alle Artikel eines Blogs.
+
+```typescript
+async getAllBlogPosts(blogId: string): Promise<Array<{
+  id: string;
+  title: string;
+  handle: string;
+  created_at: string;
+}>> {
+  const response = await fetch('/api/shopify/articles', {
+    method: 'POST',
+    body: JSON.stringify({
+      shop: this.shop,
+      accessToken: this.accessToken,
+      blogId,
+      action: 'getAll',
+    }),
+  });
+
+  const data = await response.json();
+  return data.articles || [];
+}
+```
+
+---
+
+#### `deleteBlogPost(blogId, articleId): Promise<boolean>`
+
+```typescript
+async deleteBlogPost(blogId: string, articleId: string): Promise<boolean> {
+  const response = await fetch('/api/shopify/articles', {
+    method: 'POST',
+    body: JSON.stringify({
+      shop: this.shop,
+      accessToken: this.accessToken,
+      blogId,
+      action: 'delete',
+      articleId,
+    }),
+  });
+
+  const data = await response.json();
+  return data.success;
+}
+```
+
+---
+
+#### `deleteMultipleBlogPosts(blogId, articleIds): Promise<DeleteResult>`
+
+```typescript
+async deleteMultipleBlogPosts(
+  blogId: string,
+  articleIds: string[]
+): Promise<{
+  results: Array<{ articleId: string; success: boolean; error?: string }>;
+  summary: { total: number; success: number; failed: number };
+}> {
+  const response = await fetch('/api/shopify/articles', {
+    method: 'POST',
+    body: JSON.stringify({
+      shop: this.shop,
+      accessToken: this.accessToken,
+      blogId,
+      action: 'deleteMultiple',
+      articleIds,
+    }),
+  });
+
+  return await response.json();
+}
+```
+
+---
+
+## ImageProcessor
+
+Statische Utility-Klasse für Bild-Verarbeitung.
+
+### Datei
+
+`lib/services/image-processor.ts`
+
+### Methoden
+
+#### `uploadImageToShopify(imageUrl, shop, token): Promise<string | null>`
+
+Lädt ein Bild über die Server-API zu Shopify hoch.
+
+```typescript
+static async uploadImageToShopify(
+  imageUrl: string,
+  shopifyShop: string,
+  shopifyAccessToken: string
+): Promise<string | null> {
+  try {
+    const response = await fetch('/api/shopify/upload-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shop: shopifyShop,
+        accessToken: shopifyAccessToken,
+        imageUrl: imageUrl,
+      }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    return data.success ? data.url : null;
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    return null;
+  }
+}
+```
+
+---
+
+#### `processImageUrl(imageUrl, shop, token?): Promise<string>`
+
+Verarbeitet eine Bild-URL: Upload zu Shopify oder Fallback zur Original-URL.
+
+```typescript
+static async processImageUrl(
+  imageUrl: string,
+  shopifyShop: string,
+  shopifyAccessToken?: string
+): Promise<string> {
+  // Kein Token → Original-URL zurückgeben
+  if (!shopifyAccessToken) {
+    return imageUrl;
+  }
+
+  // Upload versuchen
+  const shopifyUrl = await this.uploadImageToShopify(
+    imageUrl,
+    shopifyShop,
+    shopifyAccessToken
+  );
+
+  // Erfolg oder Fallback
+  return shopifyUrl || imageUrl;
+}
+```
+
+---
+
+#### `processContentImages(content, shop, token, wpUrl?): Promise<string>`
+
+Verarbeitet alle `<img>`-Tags im HTML-Inhalt.
+
+```typescript
+static async processContentImages(
+  content: string,
+  shopifyShop: string,
+  shopifyAccessToken: string,
+  wordpressUrl?: string
+): Promise<string> {
+  const imgRegex = /<img[^>]+src="([^"]+)"([^>]*)>/g;
+  let processedContent = content;
+  let match;
+
+  const imagePromises: Promise<void>[] = [];
+
+  while ((match = imgRegex.exec(content)) !== null) {
+    const originalUrl = match[1];
+    const fullImgTag = match[0];
+
+    // Relative URLs zu absoluten URLs konvertieren
+    let absoluteUrl = originalUrl;
+    if (wordpressUrl && !originalUrl.startsWith('http')) {
+      absoluteUrl = `${wordpressUrl}${originalUrl.startsWith('/') ? '' : '/'}${originalUrl}`;
+    }
+
+    // Async verarbeiten
+    imagePromises.push(
+      this.processImageUrl(absoluteUrl, shopifyShop, shopifyAccessToken)
+        .then(processedUrl => {
+          const newImgTag = this.enhanceImageTag(fullImgTag, processedUrl);
+          processedContent = processedContent.replace(fullImgTag, newImgTag);
+        })
+    );
+  }
+
+  await Promise.all(imagePromises);
+  return processedContent;
+}
+```
+
+---
+
+#### `enhanceImageTag(originalTag, imageUrl): string`
+
+Private Methode: Fügt `loading="lazy"` und responsive Styling hinzu.
+
+```typescript
+private static enhanceImageTag(originalTag: string, imageUrl: string): string {
+  let enhancedTag = originalTag.replace(/src="[^"]*"/, `src="${imageUrl}"`);
+
+  // Lazy loading hinzufügen
+  if (!enhancedTag.includes('loading=')) {
+    enhancedTag = enhancedTag.replace('<img', '<img loading="lazy"');
+  }
+
+  // Responsive Styling hinzufügen
+  if (!enhancedTag.includes('style=') && !enhancedTag.includes('class=')) {
+    enhancedTag = enhancedTag.replace(
+      '<img',
+      '<img style="max-width: 100%; height: auto;"'
+    );
+  }
+
+  return enhancedTag;
+}
+```
+
+---
+
+#### `getFeaturedImageFromPost(wpPost, upload?, shop?, token?): Promise<Image | null>`
+
+Extrahiert das Featured Image aus einem WordPress-Post.
+
+```typescript
+static async getFeaturedImageFromPost(
+  wpPost: any,
+  uploadToShopify: boolean = true,
+  shopifyShop?: string,
+  shopifyAccessToken?: string
+): Promise<{ src: string; alt?: string } | null> {
+  const featuredMedia = wpPost._embedded?.['wp:featuredmedia']?.[0];
+
+  if (!featuredMedia?.source_url) {
+    return null;
+  }
+
+  const altText = featuredMedia.alt_text || wpPost.title?.rendered || '';
+
+  // Upload wenn gewünscht und Credentials vorhanden
+  if (uploadToShopify && shopifyShop && shopifyAccessToken) {
+    const shopifyUrl = await this.uploadImageToShopify(
+      featuredMedia.source_url,
+      shopifyShop,
+      shopifyAccessToken
+    );
+
+    if (shopifyUrl) {
+      return { src: shopifyUrl, alt: altText };
+    }
+  }
+
+  // Fallback: Original-URL
+  return {
+    src: featuredMedia.source_url,
+    alt: altText
+  };
+}
+```
+
+---
+
+## Verwendungsbeispiele
+
+### WordPress-Posts laden
+
+```typescript
+const wpClient = new WordPressClient(
+  'https://mein-blog.de',
+  'username',  // optional
+  'password'   // optional
+);
+
+// Verbindung testen
+const connected = await wpClient.testConnection();
+
+// Posts laden
+const { posts, total, totalPages } = await wpClient.getPosts(
+  1,     // Seite
+  50,    // Posts pro Seite
+  true   // Embedded Daten laden
+);
+```
+
+### Artikel zu Shopify importieren
+
+```typescript
+const shopifyClient = new ShopifyAPIClient(
+  'mein-shop.myshopify.com',
+  'shpat_xxxxx'
+);
+
+// Prüfen ob Artikel existiert
+const exists = await shopifyClient.checkPostExists(blogId, 'mein-artikel');
+
+if (!exists) {
+  // Bild verarbeiten
+  const image = await ImageProcessor.getFeaturedImageFromPost(
+    wpPost,
+    true,
+    'mein-shop',
+    'shpat_xxxxx'
+  );
+
+  // Artikel erstellen
+  await shopifyClient.createBlogPost(blogId, {
+    title: wpPost.title.rendered,
+    content: wpPost.content.rendered,
+    handle: wpPost.slug,
+    image: image
+  });
+}
+```

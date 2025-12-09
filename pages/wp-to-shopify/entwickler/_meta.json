@@ -1,0 +1,10 @@
+{
+  "index": "Übersicht",
+  "architektur": "Architektur",
+  "api-routen": "API-Routen",
+  "services": "Services",
+  "komponenten": "Komponenten",
+  "datenfluss": "Datenfluss",
+  "erweiterung": "Erweiterung & Anpassung",
+  "deployment": "Deployment"
+}

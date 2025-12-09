@@ -1,0 +1,478 @@
+# Datenfluss
+
+Diese Seite erklärt, wie Daten durch das System fließen.
+
+import { Callout } from 'nextra/components'
+
+## Übersicht
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              BENUTZER                                    │
+│                                 │                                        │
+│                                 ▼                                        │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │                         BROWSER                                    │  │
+│  │                                                                    │  │
+│  │   localStorage ◄──────► Config State ◄──────► Settings UI         │  │
+│  │                              │                                     │  │
+│  │                              ▼                                     │  │
+│  │                      ImportInterface                               │  │
+│  │                        │         │                                 │  │
+│  │            ┌───────────┘         └───────────┐                     │  │
+│  │            ▼                                 ▼                     │  │
+│  │   WordPressClient                   ShopifyAPIClient               │  │
+│  │            │                                 │                     │  │
+│  └────────────┼─────────────────────────────────┼─────────────────────┘  │
+│               │                                 │                        │
+└───────────────┼─────────────────────────────────┼────────────────────────┘
+                │                                 │
+                ▼                                 ▼
+┌───────────────────────────┐     ┌────────────────────────────────────────┐
+│                           │     │           NEXT.JS SERVER               │
+│      WORDPRESS            │     │                  │                     │
+│      REST API             │     │                  ▼                     │
+│                           │     │           API Routes                   │
+│  GET /wp-json/wp/v2/posts │     │    /api/shopify/articles               │
+│  GET /wp-json/wp/v2/media │     │    /api/shopify/blogs                  │
+│                           │     │    /api/shopify/upload-image           │
+│                           │     │                  │                     │
+└───────────────────────────┘     │                  ▼                     │
+                                  │           SHOPIFY API                  │
+                                  │                                        │
+                                  │    REST:    /admin/api/2023-10/        │
+                                  │    GraphQL: /admin/api/2024-01/        │
+                                  └────────────────────────────────────────┘
+```
+
+---
+
+## 1. Konfiguration speichern
+
+```
+Benutzer gibt Daten ein
+         │
+         ▼
+┌─────────────────┐
+│  Settings.tsx   │
+│  Input onChange │
+└────────┬────────┘
+         │
+         ▼ onConfigChange(newConfig)
+┌─────────────────┐
+│    page.tsx     │
+│  setConfig()    │
+└────────┬────────┘
+         │
+         ├────────────────────────┐
+         ▼                        ▼
+┌─────────────────┐      ┌─────────────────┐
+│  React State    │      │  localStorage   │
+│  config: {...}  │      │  JSON.stringify │
+└─────────────────┘      └─────────────────┘
+```
+
+**Code:**
+
+```typescript
+// Settings.tsx
+<input
+  value={config.wordpressUrl}
+  onChange={(e) => onConfigChange({
+    ...config,
+    wordpressUrl: e.target.value
+  })}
+/>
+
+// page.tsx
+const handleConfigChange = (newConfig: ImportConfig) => {
+  setConfig(newConfig);
+  localStorage.setItem('shopify-blog-import-config', JSON.stringify(newConfig));
+};
+```
+
+---
+
+## 2. WordPress Posts laden
+
+```
+ImportInterface mounted
+         │
+         ▼ useEffect
+┌─────────────────┐
+│   loadPosts()   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ WordPressClient │
+│    getPosts()   │
+└────────┬────────┘
+         │
+         ▼ HTTP GET
+┌─────────────────────────────────────────┐
+│  WordPress REST API                      │
+│  GET /wp-json/wp/v2/posts?_embed=1      │
+└────────┬────────────────────────────────┘
+         │
+         ▼ JSON Response
+┌─────────────────┐
+│   posts: [...]  │
+│   total: 150    │
+│   totalPages: 3 │
+└────────┬────────┘
+         │
+         ▼ setPosts()
+┌─────────────────┐
+│  React State    │
+│  posts: [...]   │
+└─────────────────┘
+```
+
+**Datenstruktur (WordPress Response):**
+
+```json
+{
+  "id": 123,
+  "date": "2024-01-15T10:00:00",
+  "slug": "mein-artikel",
+  "title": { "rendered": "Mein Artikel" },
+  "content": { "rendered": "<p>Inhalt...</p>" },
+  "excerpt": { "rendered": "<p>Kurz...</p>" },
+  "_embedded": {
+    "author": [{ "name": "Admin" }],
+    "wp:term": [
+      [{ "name": "Kategorie 1" }],
+      [{ "name": "Tag 1" }, { "name": "Tag 2" }]
+    ],
+    "wp:featuredmedia": [{
+      "source_url": "https://wp.de/image.jpg",
+      "alt_text": "Beschreibung"
+    }]
+  }
+}
+```
+
+---
+
+## 3. Existenz-Check
+
+```
+┌─────────────────┐
+│ loadStatistics()│
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐     handles: ["artikel-1", "artikel-2", ...]
+│ShopifyAPIClient │ ─────────────────────────────────────────────┐
+│checkMultiple()  │                                              │
+└────────┬────────┘                                              │
+         │                                                       │
+         ▼ POST                                                  │
+┌─────────────────────────┐                                      │
+│ /api/shopify/articles   │                                      │
+│ action: "checkMultiple" │ ◄────────────────────────────────────┘
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ Shopify REST API        │
+│ GET /blogs/X/articles   │  ← Alle Artikel laden
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ Handle-Set erstellen    │
+│ existingHandles = Set() │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ { "artikel-1": true,    │
+│   "artikel-2": false }  │
+└────────┬────────────────┘
+         │
+         ▼ setExistingPosts()
+┌─────────────────────────┐
+│ React State             │
+│ existingPosts: {...}    │
+└─────────────────────────┘
+```
+
+---
+
+## 4. Import-Prozess
+
+```
+Benutzer klickt "Import"
+         │
+         ▼
+┌─────────────────┐
+│  startImport()  │
+└────────┬────────┘
+         │
+         ▼ for each selectedPost
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  ┌──────────────────┐                                           │
+│  │ Skip if exists?  │ ─── existingPosts[slug] === true ──► SKIP │
+│  └────────┬─────────┘                                           │
+│           │ No                                                  │
+│           ▼                                                     │
+│  ┌──────────────────┐                                           │
+│  │ convertToShopify │                                           │
+│  └────────┬─────────┘                                           │
+│           │                                                     │
+│           ├────────────────────────────────────────┐            │
+│           │                                        │            │
+│           ▼                                        ▼            │
+│  ┌──────────────────┐                    ┌──────────────────┐   │
+│  │ processContent   │                    │ getFeaturedImage │   │
+│  │ Images           │                    └────────┬─────────┘   │
+│  └────────┬─────────┘                             │             │
+│           │                                       │             │
+│           ▼                                       ▼             │
+│  ┌──────────────────┐                    ┌──────────────────┐   │
+│  │ For each <img>   │                    │ uploadImageTo    │   │
+│  │ uploadToShopify  │                    │ Shopify          │   │
+│  └────────┬─────────┘                    └────────┬─────────┘   │
+│           │                                       │             │
+│           └───────────────────┬───────────────────┘             │
+│                               │                                 │
+│                               ▼                                 │
+│                    ┌──────────────────┐                         │
+│                    │ ShopifyBlogPost  │                         │
+│                    │ {                │                         │
+│                    │   title,         │                         │
+│                    │   content,       │                         │
+│                    │   image: {...}   │                         │
+│                    │ }                │                         │
+│                    └────────┬─────────┘                         │
+│                             │                                   │
+│                             ▼                                   │
+│                    ┌──────────────────┐                         │
+│                    │ createBlogPost() │                         │
+│                    └────────┬─────────┘                         │
+│                             │                                   │
+└─────────────────────────────┼───────────────────────────────────┘
+                              │
+                              ▼ POST
+┌─────────────────────────────────────────┐
+│ /api/shopify/articles                   │
+│ action: "create"                        │
+│ article: { title, body_html, ... }      │
+└────────┬────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│ Shopify REST API                        │
+│ POST /blogs/{id}/articles.json          │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## 5. Bild-Upload im Detail
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            BROWSER                                       │
+│                                                                          │
+│  ┌──────────────────┐                                                   │
+│  │ ImageProcessor   │                                                   │
+│  │ uploadToShopify()│                                                   │
+│  └────────┬─────────┘                                                   │
+│           │                                                             │
+│           ▼ POST { imageUrl, shop, token }                              │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                         NEXT.JS SERVER                                   │
+│                                                                          │
+│  ┌──────────────────────┐                                               │
+│  │ /api/shopify/        │                                               │
+│  │ upload-image         │                                               │
+│  └────────┬─────────────┘                                               │
+│           │                                                             │
+│           ▼ 1. Download                                                 │
+│  ┌──────────────────────┐                                               │
+│  │ fetch(imageUrl)      │ ──────────────────┐                           │
+│  └──────────────────────┘                   │                           │
+│                                             ▼                           │
+│                                   ┌──────────────────────┐              │
+│                                   │    WORDPRESS         │              │
+│                                   │    Image Server      │              │
+│                                   └──────────┬───────────┘              │
+│                                              │                          │
+│           ┌──────────────────────────────────┘                          │
+│           │ Buffer                                                      │
+│           ▼                                                             │
+│  ┌──────────────────────┐                                               │
+│  │ 2. stagedUploads     │                                               │
+│  │    Create            │ ─────────────────────┐                        │
+│  └──────────────────────┘                      │                        │
+│                                                ▼                        │
+│                                    ┌───────────────────────┐            │
+│                                    │  SHOPIFY GraphQL API  │            │
+│                                    │  stagedUploadsCreate  │            │
+│                                    └───────────┬───────────┘            │
+│           ┌────────────────────────────────────┘                        │
+│           │ { url, resourceUrl, parameters }                            │
+│           ▼                                                             │
+│  ┌──────────────────────┐                                               │
+│  │ 3. Upload to         │                                               │
+│  │    Staged URL        │ ─────────────────────┐                        │
+│  └──────────────────────┘                      │                        │
+│                                                ▼                        │
+│                                    ┌───────────────────────┐            │
+│                                    │  SHOPIFY/AWS S3       │            │
+│                                    │  Staged Upload        │            │
+│                                    └───────────┬───────────┘            │
+│           ┌────────────────────────────────────┘                        │
+│           │ 200 OK                                                      │
+│           ▼                                                             │
+│  ┌──────────────────────┐                                               │
+│  │ 4. fileCreate        │                                               │
+│  │                      │ ─────────────────────┐                        │
+│  └──────────────────────┘                      │                        │
+│                                                ▼                        │
+│                                    ┌───────────────────────┐            │
+│                                    │  SHOPIFY GraphQL API  │            │
+│                                    │  fileCreate           │            │
+│                                    └───────────┬───────────┘            │
+│           ┌────────────────────────────────────┘                        │
+│           │ { url: "https://cdn.shopify.com/..." }                      │
+│           ▼                                                             │
+│  ┌──────────────────────┐                                               │
+│  │ Return CDN URL       │                                               │
+│  └────────┬─────────────┘                                               │
+│           │                                                             │
+└───────────┼─────────────────────────────────────────────────────────────┘
+            │
+            ▼ { success: true, url: "..." }
+┌──────────────────────────────────────────────────────────────────────────┐
+│                            BROWSER                                       │
+│  ┌──────────────────┐                                                   │
+│  │ Use Shopify URL  │                                                   │
+│  │ in article       │                                                   │
+│  └──────────────────┘                                                   │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 6. Löschen von Artikeln
+
+```
+Benutzer wählt Artikel aus
+         │
+         ▼
+┌─────────────────┐
+│ deleteSelected()│
+└────────┬────────┘
+         │
+         ▼ articleIds: ["111", "222", "333"]
+┌─────────────────────────┐
+│ ShopifyAPIClient        │
+│ deleteMultipleBlogPosts │
+└────────┬────────────────┘
+         │
+         ▼ POST
+┌─────────────────────────┐
+│ /api/shopify/articles   │
+│ action: "deleteMultiple"│
+│ articleIds: [...]       │
+└────────┬────────────────┘
+         │
+         ▼ for each articleId
+┌─────────────────────────┐
+│ DELETE /blogs/X/        │
+│ articles/{id}.json      │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ { results: [...],       │
+│   summary: {            │
+│     total: 3,           │
+│     success: 2,         │
+│     failed: 1           │
+│   }                     │
+│ }                       │
+└────────┬────────────────┘
+         │
+         ▼ Update UI
+┌─────────────────────────┐
+│ loadArticles()          │
+│ setSelectedArticles({}) │
+└─────────────────────────┘
+```
+
+---
+
+## State-Übergänge
+
+### Import-Progress
+
+```
+IDLE
+  │
+  │ startImport()
+  ▼
+RUNNING
+  │ isRunning: true
+  │ processedPosts: 0
+  │
+  │ for each post
+  ├─────────────────────┐
+  │                     │
+  ▼                     ▼
+SUCCESS              ERROR
+  │                     │
+  │ successfulImports++ │ failedImports++
+  │ errors.push(...)    │
+  │                     │
+  └─────────┬───────────┘
+            │
+            │ all posts processed
+            ▼
+         COMPLETE
+           │ isRunning: false
+           │ currentPost: undefined
+           ▼
+         IDLE
+```
+
+### Verbindungstest
+
+```
+UNTESTED
+  │ wpConnected: false
+  │ shopifyConnected: false
+  │
+  │ testConnection()
+  ▼
+TESTING
+  │ testingWp: true
+  │ testingShopify: true
+  │
+  │ response received
+  ├─────────────────────┐
+  │                     │
+  ▼                     ▼
+CONNECTED           FAILED
+  │                     │
+  │ wpConnected: true   │ wpConnected: false
+  │ Load blogs if       │
+  │ Shopify connected   │
+  │                     │
+  └─────────┬───────────┘
+            │
+            ▼
+       CONFIGURED
+         │ blogId selected
+         ▼
+        READY
+```
