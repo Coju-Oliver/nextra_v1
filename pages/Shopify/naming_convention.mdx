@@ -1,0 +1,56 @@
+# Metafelder – Dokumentation und Vorgehensweise
+
+Die bestehenden Shops werden geprüft und im Hinblick auf benötigte Metafelder sowie Importthemen bewertet. Die ermittelten Daten werden intern weitergegeben, um spätere Iterationsschleifen aufgrund fehlender Daten oder nachträglicher Änderungen so gering wie möglich zu halten.
+
+---
+
+## Grundprinzipien
+
+### Namensschema
+
+Metafelder werden – soweit möglich – vorab definiert. Das Namensschema lautet immer:
+
+`custom.name_name`
+
+Beispiel:
+
+`custom.ean_nummer`
+
+### Wiederkehrende Metafelder
+
+Wiederkehrende Metafelder werden auf dieser Karte dokumentiert und in allen Projekten (sofern vorhanden) nach demselben Schema angelegt. Dabei ist auf die jeweilige Art des Metafelds zu achten, z. B.:
+
+- Einzeiliger Text
+- JSON (z. B. für Tabellen)
+
+---
+
+## Aktuell definierte Metafelder
+
+### Produkte
+
+| Metafeld                  | Typ             | Beschreibung                                |
+|---------------------------|-----------------|---------------------------------------------|
+| `custom.artikel_nummer`   | Einzeiliger Text | Artikelnummer                               |
+| `custom.ean_nummer`       | Einzeiliger Text | EAN-Nummer                                  |
+| `custom.product_properties` | JSON          | Tabellenansicht von Produkteigenschaften    |
+
+---
+
+### Kollektionen
+
+| Metafeld                 | Typ                          | Beschreibung                                                                 |
+|--------------------------|------------------------------|------------------------------------------------------------------------------|
+| `custom.seoextendedtext` | Einzeiliger Text / Textfeld  | Übernommen vom Namen der Sprungmarke; dient für zusätzlichen Text unterhalb der Kategorieseiten in Shopware |
+
+---
+
+### Bestellungen
+
+| Metafeld                   | Typ             | Beschreibung                                              |
+|----------------------------|-----------------|-----------------------------------------------------------|
+| `custom.zahlungsreferenz`  | Einzeiliger Text | Zahlungs-ID für Zuordnung von Zahlungen wie PayPal       |
+
+---
+
+Wenn weitere Metafelder hinzukommen sollen, kann die Tabelle hier erweitert werden.
