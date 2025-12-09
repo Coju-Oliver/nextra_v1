@@ -1,0 +1,206 @@
+# Import durchführen
+
+Diese Anleitung erklärt, wie du WordPress-Artikel nach Shopify importierst.
+
+import { Callout, Steps } from 'nextra/components'
+
+## Voraussetzungen
+
+Bevor du beginnst, stelle sicher, dass:
+
+- [x] WordPress-Verbindung funktioniert (grüner Haken)
+- [x] Shopify-Verbindung funktioniert (grüner Haken)
+- [x] Ein Blog in Shopify ausgewählt ist
+
+## Import-Prozess
+
+<Steps>
+
+### Import-Tab öffnen
+
+Klicke auf den Tab **"Import"**.
+
+Das Tool lädt automatisch:
+- Die WordPress-Artikel
+- Eine Statistik über bereits importierte Artikel
+
+### Artikel werden geladen
+
+Du siehst eine Liste aller WordPress-Blog-Posts mit:
+- Titel des Artikels
+- Veröffentlichungsdatum
+- Autor
+- Anzahl der Tags
+- Status (bereits importiert oder nicht)
+
+<Callout type="info">
+  Artikel, die bereits in Shopify existieren, werden mit einem grünen Badge "Importiert" markiert.
+</Callout>
+
+### Artikel auswählen
+
+Du hast mehrere Möglichkeiten zur Auswahl:
+
+| Button | Funktion |
+|--------|----------|
+| **Alle** | Wählt alle Artikel aus |
+| **Nur Neue** | Wählt nur noch nicht importierte Artikel aus |
+| **Keine** | Hebt die Auswahl auf |
+
+Oder klicke einzelne Artikel an, um sie auszuwählen.
+
+### Vorschau ansehen
+
+Klicke auf **"Vorschau anzeigen"** bei einem Artikel, um zu sehen:
+- Den vollständigen Titel
+- Das Datum
+- Den Autor
+- Den Slug (URL-Kurzform)
+- Die Tags
+- Eine Vorschau des Inhalts
+
+### Import starten
+
+1. Stelle sicher, dass die gewünschten Artikel ausgewählt sind
+2. Klicke auf den grünen Button **"X Posts importieren"**
+3. Der Import beginnt
+
+### Fortschritt verfolgen
+
+Während des Imports siehst du:
+- Eine Fortschrittsanzeige
+- Den aktuell bearbeiteten Artikel
+- Anzahl erfolgreicher Imports
+- Anzahl fehlgeschlagener Imports
+
+### Ergebnis prüfen
+
+Nach Abschluss zeigt das Import-Log:
+- Welche Artikel erfolgreich importiert wurden
+- Welche Artikel übersprungen wurden (bereits vorhanden)
+- Welche Fehler aufgetreten sind
+
+</Steps>
+
+## Import-Optionen
+
+Im **Einstellungen-Tab** kannst du den Import anpassen:
+
+### Bilder importieren
+
+| Option | Beschreibung |
+|--------|-------------|
+| **Aktiviert** | Bilder werden zu Shopify hochgeladen |
+| **Deaktiviert** | Bilder bleiben auf WordPress-Server verlinkt |
+
+<Callout type="warning">
+  Für den Bild-Upload benötigst du zusätzliche Berechtigungen in Shopify (`read_files` und `write_files`).
+</Callout>
+
+[Mehr zum Bilder-Import →](/bilder-import)
+
+### URL-Slug beibehalten
+
+| Option | Beschreibung |
+|--------|-------------|
+| **Aktiviert** | Der WordPress-Slug wird übernommen (z.B. `mein-artikel`) |
+| **Deaktiviert** | Shopify generiert einen neuen Slug |
+
+<Callout type="info">
+  Empfehlung: Aktiviert lassen für bessere SEO und konsistente URLs.
+</Callout>
+
+### Standard-Autor
+
+Der Name, der als Autor in Shopify verwendet wird.
+
+### Tags importieren
+
+Überträgt WordPress-Tags nach Shopify.
+
+### Kategorien importieren
+
+Überträgt WordPress-Kategorien als zusätzliche Tags nach Shopify.
+
+<Callout type="info">
+  Shopify-Blogs haben keine Kategorien, daher werden diese als Tags importiert.
+</Callout>
+
+### Batch-Größe
+
+Wie viele Artikel gleichzeitig verarbeitet werden. Standard: 10.
+
+<Callout type="warning">
+  Eine zu hohe Batch-Größe kann zu Rate-Limiting-Fehlern führen. Empfohlen: 10-20.
+</Callout>
+
+## Weitere Seiten laden
+
+Wenn du mehr als 50 Artikel hast:
+
+1. Scrolle zum Ende der Artikelliste
+2. Klicke auf **"Weitere Posts laden"**
+3. Die nächsten 50 Artikel werden geladen
+
+## Was wird importiert?
+
+| WordPress-Feld | Shopify-Feld |
+|----------------|--------------|
+| Titel | Titel |
+| Inhalt (HTML) | Inhalt (HTML) |
+| Auszug | Zusammenfassung |
+| Veröffentlichungsdatum | Veröffentlichungsdatum |
+| Slug | Handle/URL |
+| Tags | Tags |
+| Kategorien | Tags (zusätzlich) |
+| Beitragsbild | Artikelbild |
+| Autor | Standard-Autor (aus Einstellungen) |
+
+## Tipps für einen erfolgreichen Import
+
+### Vor dem Import
+
+1. **Backup erstellen**: Exportiere deine WordPress-Artikel vorher
+2. **Testlauf**: Importiere zuerst nur 1-2 Artikel zum Testen
+3. **Bilder prüfen**: Stelle sicher, dass WordPress-Bilder öffentlich zugänglich sind
+
+### Während des Imports
+
+1. **Browser nicht schließen**: Der Import läuft im Browser
+2. **Geduld haben**: Große Importe können einige Zeit dauern
+3. **Fehler notieren**: Prüfe das Import-Log auf Probleme
+
+### Nach dem Import
+
+1. **Shopify prüfen**: Schau dir die importierten Artikel in Shopify an
+2. **Formatierung prüfen**: Manchmal müssen Formatierungen angepasst werden
+3. **Bilder prüfen**: Stelle sicher, dass alle Bilder korrekt angezeigt werden
+
+## Häufige Fragen
+
+### Kann ich den Import unterbrechen?
+
+Ja, schließe einfach den Browser-Tab. Bereits importierte Artikel bleiben erhalten.
+
+### Was passiert bei einem Fehler?
+
+Der Import fährt mit dem nächsten Artikel fort. Fehlerhafte Artikel werden im Log angezeigt.
+
+### Kann ich Artikel mehrfach importieren?
+
+Nein, das Tool erkennt bereits importierte Artikel (anhand des Slugs) und überspringt sie.
+
+### Wie lange dauert der Import?
+
+Das hängt ab von:
+- Anzahl der Artikel
+- Anzahl und Größe der Bilder
+- Internetgeschwindigkeit
+
+Richtwert: Ca. 2-5 Sekunden pro Artikel ohne Bilder, 5-15 Sekunden mit Bildern.
+
+## Nächste Schritte
+
+- [Bilder importieren](/bilder-import) - Detaillierte Anleitung zum Bild-Import
+- [Artikel löschen](/artikel-loeschen) - Importierte Artikel wieder entfernen
+- [Fehlerbehebung](/fehlerbehebung) - Probleme lösen

@@ -1,0 +1,146 @@
+# Artikel löschen
+
+Diese Anleitung erklärt, wie du importierte Artikel aus Shopify wieder entfernen kannst.
+
+import { Callout, Steps } from 'nextra/components'
+
+<Callout type="warning">
+  **Achtung:** Gelöschte Artikel können nicht wiederhergestellt werden! Stelle sicher, dass du die richtigen Artikel auswählst.
+</Callout>
+
+## Wann ist das nützlich?
+
+- Du hast Test-Artikel importiert und möchtest sie entfernen
+- Ein Import ist fehlgeschlagen und du möchtest neu beginnen
+- Du möchtest bestimmte Artikel aus dem Shopify-Blog entfernen
+
+## Artikel löschen
+
+<Steps>
+
+### Löschen-Tab öffnen
+
+Klicke auf den Tab **"Löschen"** (rot markiert).
+
+### Artikel werden geladen
+
+Das Tool lädt alle vorhandenen Blog-Artikel aus deinem Shopify-Blog.
+
+Du siehst:
+- Titel des Artikels
+- Erstellungsdatum
+- Handle/Slug
+
+### Artikel auswählen
+
+Wähle die Artikel aus, die du löschen möchtest:
+
+| Button | Funktion |
+|--------|----------|
+| **Alle auswählen** | Wählt alle Artikel aus |
+| **Auswahl aufheben** | Hebt die Auswahl auf |
+
+Oder klicke einzelne Artikel an.
+
+### Löschen bestätigen
+
+1. Klicke auf den roten Button **"X Artikel löschen"**
+2. Das Tool fragt nach einer Bestätigung
+3. Bestätige den Löschvorgang
+
+### Fortschritt verfolgen
+
+Du siehst:
+- Welche Artikel gerade gelöscht werden
+- Erfolgreiche Löschungen
+- Fehlgeschlagene Löschungen
+
+</Steps>
+
+## Alle Artikel auf einmal löschen
+
+<Callout type="error">
+  **Achtung:** Diese Aktion löscht ALLE Blog-Artikel unwiderruflich!
+</Callout>
+
+Falls du alle Artikel löschen möchtest:
+
+1. Klicke auf **"Alle auswählen"**
+2. Klicke auf **"X Artikel löschen"**
+3. Bestätige den Löschvorgang
+
+## Einzelne Artikel manuell löschen
+
+Alternativ kannst du Artikel direkt in Shopify löschen:
+
+<Steps>
+
+### Shopify Admin öffnen
+
+Gehe zu deinem Shopify Admin.
+
+### Blog-Beiträge öffnen
+
+Klicke auf **Online-Store** → **Blog-Beiträge**.
+
+### Artikel auswählen
+
+Aktiviere die Checkbox neben den Artikeln, die du löschen möchtest.
+
+### Löschen
+
+Klicke auf **Aktionen** → **Löschen**.
+
+</Steps>
+
+## Fehlerbehebung
+
+### "401 Unauthorized" beim Löschen
+
+**Problem:** Der Access Token ist ungültig oder abgelaufen.
+
+**Lösung:**
+1. Erstelle einen neuen Access Token in Shopify
+2. Aktualisiere ihn in den Einstellungen
+3. Versuche es erneut
+
+### Einige Artikel können nicht gelöscht werden
+
+**Mögliche Ursachen:**
+
+1. **Rate Limiting**
+   - Zu viele Anfragen in kurzer Zeit
+   - Warte einige Sekunden und versuche es erneut
+
+2. **Artikel wurde bereits gelöscht**
+   - Lade die Artikelliste neu
+
+3. **Berechtigungsproblem**
+   - Prüfe die `write_content` Berechtigung in Shopify
+
+## Tipps
+
+### Vor dem Löschen
+
+1. **Notiere wichtige Inhalte**: Gelöschte Artikel sind weg
+2. **Mache ein Backup**: Exportiere wichtige Artikel vorher
+
+### Sicherer löschen
+
+Statt alle auf einmal zu löschen:
+1. Lösche in kleinen Gruppen (10-20 Artikel)
+2. Prüfe nach jeder Gruppe, ob alles korrekt ist
+3. Fahre dann fort
+
+## Artikel nach erneutem Import
+
+Wenn du Artikel löschst und danach erneut importierst:
+
+1. Das Tool erkennt, dass die Artikel nicht mehr existieren
+2. Die Artikel werden als "neu" markiert
+3. Du kannst sie erneut importieren
+
+## Nächste Schritte
+
+- [Fehlerbehebung](/fehlerbehebung) - Probleme lösen
+- [Import durchführen](/import-durchfuehren) - Neue Artikel importieren

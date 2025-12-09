@@ -1,0 +1,214 @@
+# Bilder importieren
+
+Diese Anleitung erklärt, wie Bilder von WordPress nach Shopify übertragen werden.
+
+import { Callout, Steps } from 'nextra/components'
+
+## Übersicht
+
+Das Tool kann zwei Arten von Bildern importieren:
+
+1. **Beitragsbilder (Featured Images)** - Das Hauptbild eines Artikels
+2. **Inhalt-Bilder** - Bilder innerhalb des Artikeltextes
+
+## Wie funktioniert der Bild-Import?
+
+<Steps>
+
+### Bild wird erkannt
+
+Das Tool findet Bilder in deinen WordPress-Artikeln.
+
+### Bild wird heruntergeladen
+
+Das Bild wird vom WordPress-Server heruntergeladen.
+
+### Bild wird zu Shopify hochgeladen
+
+Das Bild wird in die Shopify Files hochgeladen.
+
+### URL wird ersetzt
+
+Die WordPress-URL im Artikel wird durch die Shopify-URL ersetzt.
+
+</Steps>
+
+## Bild-Import aktivieren
+
+<Steps>
+
+### Einstellungen öffnen
+
+Gehe zum Tab **"Einstellungen"**.
+
+### Option aktivieren
+
+Aktiviere die Checkbox **"Bilder importieren"**.
+
+### Shopify-Berechtigungen prüfen
+
+Für den Bild-Upload benötigst du zusätzliche Berechtigungen in deiner Shopify-App:
+
+| Berechtigung | Erforderlich |
+|-------------|-------------|
+| `read_files` | Ja |
+| `write_files` | Ja |
+
+</Steps>
+
+## Shopify-Berechtigungen erweitern
+
+Falls du die Files-Berechtigungen noch nicht aktiviert hast:
+
+<Steps>
+
+### Shopify Admin öffnen
+
+Gehe zu **Einstellungen** → **Apps und Vertriebskanäle** → **Apps entwickeln**.
+
+### App auswählen
+
+Klicke auf deine Import-App (z.B. "Blog Import Tool").
+
+### Berechtigungen bearbeiten
+
+1. Klicke auf **Admin-API-Zugangsdaten konfigurieren**
+2. Scrolle zu den Berechtigungen
+3. Suche nach **"Files"**
+4. Aktiviere `read_files` und `write_files`
+5. Klicke auf **Speichern**
+
+### App neu installieren
+
+1. Klicke auf **App installieren** (oder "Erneut installieren")
+2. Bestätige die Installation
+3. Kopiere den neuen Access Token
+
+<Callout type="warning">
+  Nach dem Ändern der Berechtigungen erhältst du einen neuen Access Token! Aktualisiere ihn im Import-Tool.
+</Callout>
+
+</Steps>
+
+## Was passiert mit den Bildern?
+
+### Mit Bild-Import aktiviert
+
+```
+WordPress-Bild: https://mein-blog.de/wp-content/uploads/bild.jpg
+         ↓
+Shopify-Bild:   https://cdn.shopify.com/s/files/1/xxxx/files/bild.jpg
+```
+
+**Vorteile:**
+- Bilder liegen auf Shopify-Servern
+- Schnellere Ladezeiten
+- Unabhängig von WordPress
+
+### Ohne Bild-Import
+
+```
+WordPress-Bild: https://mein-blog.de/wp-content/uploads/bild.jpg
+         ↓
+Shopify-Artikel verlinkt auf: https://mein-blog.de/wp-content/uploads/bild.jpg
+```
+
+**Nachteile:**
+- Bilder bleiben auf WordPress-Server
+- Wenn WordPress offline geht, sind Bilder weg
+- Möglicherweise langsamere Ladezeiten
+
+## Unterstützte Bildformate
+
+| Format | Unterstützt |
+|--------|-------------|
+| JPG / JPEG | ✓ |
+| PNG | ✓ |
+| GIF | ✓ |
+| WebP | ✓ |
+| SVG | ✓ |
+
+## Bildgrößen-Limits
+
+| Limit | Wert |
+|-------|------|
+| Maximale Dateigröße | 20 MB |
+| Empfohlene Größe | Unter 5 MB |
+
+<Callout type="info">
+  Bilder über 20 MB werden übersprungen und bleiben als WordPress-URL verlinkt.
+</Callout>
+
+## Fehlerbehebung
+
+### Bilder werden nicht hochgeladen
+
+**Mögliche Ursachen:**
+
+1. **Fehlende Berechtigungen**
+   - Prüfe `read_files` und `write_files` in Shopify
+
+2. **Bild nicht erreichbar**
+   - Öffne die Bild-URL im Browser
+   - Wenn du das Bild nicht sehen kannst, kann das Tool es auch nicht laden
+
+3. **Bild zu groß**
+   - Bilder über 20 MB werden übersprungen
+   - Komprimiere große Bilder vor dem Import
+
+### "Failed to upload image" Fehler
+
+**Lösung:**
+1. Prüfe die Shopify-Berechtigungen
+2. Prüfe ob das Bild öffentlich zugänglich ist
+3. Versuche den Import erneut
+
+### Bilder werden nur verlinkt
+
+**Mögliche Ursachen:**
+
+1. **Bild-Import nicht aktiviert**
+   - Aktiviere "Bilder importieren" in den Einstellungen
+
+2. **Upload fehlgeschlagen**
+   - Prüfe das Import-Log auf Fehler
+   - Das Tool verlinkt automatisch als Fallback
+
+## Tipps für bessere Ergebnisse
+
+### Vor dem Import
+
+1. **Bilder optimieren**: Komprimiere große Bilder
+2. **Zugang prüfen**: Stelle sicher, dass alle Bilder öffentlich zugänglich sind
+3. **HTTPS prüfen**: Bilder sollten über HTTPS erreichbar sein
+
+### Bilder manuell optimieren
+
+Falls Bilder zu groß sind:
+
+1. Lade sie von WordPress herunter
+2. Komprimiere sie mit Tools wie:
+   - [TinyPNG](https://tinypng.com)
+   - [Squoosh](https://squoosh.app)
+3. Lade sie wieder auf WordPress hoch
+4. Starte den Import
+
+## Technische Details
+
+### Upload-Prozess
+
+1. **Download**: Bild wird von WordPress-URL geladen
+2. **Staged Upload**: Shopify erstellt einen temporären Upload-Slot
+3. **Upload**: Bild wird zum Shopify-Server übertragen
+4. **Finalisierung**: Bild wird in Shopify Files registriert
+5. **URL-Ersetzung**: Die neue URL wird im Artikel verwendet
+
+### Wo werden Bilder gespeichert?
+
+Hochgeladene Bilder findest du in Shopify unter:
+**Einstellungen** → **Dateien**
+
+## Nächste Schritte
+
+- [Artikel löschen](/artikel-loeschen) - Importierte Artikel wieder entfernen
+- [Fehlerbehebung](/fehlerbehebung) - Weitere Probleme lösen

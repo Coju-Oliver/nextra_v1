@@ -1,0 +1,314 @@
+# Fehlerbehebung
+
+Diese Seite hilft dir, häufige Probleme mit dem Import-Tool zu lösen.
+
+import { Callout, Tabs } from 'nextra/components'
+
+## Verbindungsprobleme
+
+### WordPress-Verbindung schlägt fehl
+
+<Tabs items={['CORS-Fehler', 'REST API nicht verfügbar', 'Authentifizierung fehlgeschlagen']}>
+
+<Tabs.Tab>
+**Symptom:** Fehlermeldung "CORS error" oder "Network error" in der Konsole.
+
+**Ursache:** Der Browser blockiert die Anfrage aus Sicherheitsgründen.
+
+**Lösung:**
+1. Überprüfe, ob die WordPress-URL korrekt ist (mit `https://`)
+2. Prüfe, ob die REST API erreichbar ist: `https://deine-seite.de/wp-json/wp/v2/posts`
+3. Falls ein Sicherheits-Plugin CORS blockiert, konfiguriere es entsprechend
+
+<Callout type="info">
+  Dieses Problem tritt häufig auf, wenn WordPress auf einem anderen Server läuft. In den meisten Fällen sollte es funktionieren.
+</Callout>
+</Tabs.Tab>
+
+<Tabs.Tab>
+**Symptom:** Die URL `https://deine-seite.de/wp-json/wp/v2/posts` zeigt einen Fehler.
+
+**Mögliche Ursachen:**
+
+1. **Permalinks sind auf "Einfach" gestellt**
+   - Gehe zu WordPress → Einstellungen → Permalinks
+   - Wähle eine andere Option (z.B. "Beitragsname")
+   - Speichere
+
+2. **Ein Plugin blockiert die REST API**
+   - Prüfe Sicherheits-Plugins wie Wordfence, iThemes Security
+   - Suche nach "REST API" in den Plugin-Einstellungen
+
+3. **WordPress ist sehr alt**
+   - Die REST API ist seit WordPress 4.7 verfügbar
+   - Aktualisiere WordPress auf eine neuere Version
+</Tabs.Tab>
+
+<Tabs.Tab>
+**Symptom:** Fehlermeldung "401 Unauthorized" bei WordPress.
+
+**Lösung:**
+1. Prüfe Benutzername und Passwort
+2. Verwende ein Anwendungspasswort statt dem normalen Passwort
+3. Stelle sicher, dass der Benutzer Leserechte für Posts hat
+</Tabs.Tab>
+
+</Tabs>
+
+---
+
+### Shopify-Verbindung schlägt fehl
+
+<Tabs items={['401 Unauthorized', '403 Forbidden', 'Shop nicht gefunden']}>
+
+<Tabs.Tab>
+**Symptom:** Fehlermeldung "401 Unauthorized".
+
+**Ursache:** Der Access Token ist ungültig.
+
+**Lösungen:**
+
+1. **Token korrekt kopiert?**
+   - Der Token beginnt mit `shpat_`
+   - Stelle sicher, dass keine Leerzeichen am Anfang/Ende sind
+
+2. **App installiert?**
+   - Gehe zu Shopify → Einstellungen → Apps → Apps entwickeln
+   - Prüfe, ob die App installiert ist
+
+3. **Neuen Token erstellen**
+   - Deinstalliere die App und installiere sie neu
+   - Kopiere den neuen Token
+</Tabs.Tab>
+
+<Tabs.Tab>
+**Symptom:** Fehlermeldung "403 Forbidden".
+
+**Ursache:** Fehlende API-Berechtigungen.
+
+**Lösung:**
+1. Gehe zu deiner App in Shopify
+2. Klicke auf "Admin-API-Zugangsdaten konfigurieren"
+3. Aktiviere:
+   - `read_content`
+   - `write_content`
+   - `read_files` (für Bilder)
+   - `write_files` (für Bilder)
+4. Speichere und installiere die App neu
+</Tabs.Tab>
+
+<Tabs.Tab>
+**Symptom:** Fehlermeldung "Shop not found" oder leere Antwort.
+
+**Lösung:**
+1. Prüfe die Shop-Domain
+2. Verwende das Format: `dein-shop.myshopify.com`
+3. Nicht die benutzerdefinierte Domain verwenden
+</Tabs.Tab>
+
+</Tabs>
+
+---
+
+## Import-Probleme
+
+### Import bleibt hängen
+
+**Symptom:** Der Import stoppt bei einem bestimmten Artikel.
+
+**Lösungen:**
+
+1. **Seite neu laden und erneut versuchen**
+   - Bereits importierte Artikel werden übersprungen
+
+2. **Batch-Größe reduzieren**
+   - Gehe zu Einstellungen
+   - Reduziere die Batch-Größe auf 5-10
+
+3. **Browser-Konsole prüfen**
+   - Drücke `F12` → Tab "Konsole"
+   - Suche nach Fehlermeldungen
+
+### Artikel werden doppelt importiert
+
+**Symptom:** Derselbe Artikel erscheint mehrfach in Shopify.
+
+**Ursache:** Der Slug (Handle) wurde geändert oder ist nicht eindeutig.
+
+**Lösung:**
+1. Lösche die doppelten Artikel in Shopify
+2. Aktiviere "URL-Slug beibehalten" in den Einstellungen
+3. Importiere erneut
+
+### Formatierung geht verloren
+
+**Symptom:** Artikel sehen in Shopify anders aus als in WordPress.
+
+**Mögliche Ursachen:**
+
+1. **WordPress-spezifische Shortcodes**
+   - Shortcodes wie `[gallery]` funktionieren nicht in Shopify
+   - Diese müssen manuell ersetzt werden
+
+2. **Spezielle CSS-Klassen**
+   - WordPress-Themes fügen eigene Klassen hinzu
+   - Diese existieren nicht in Shopify
+
+3. **Eingebettete Inhalte**
+   - YouTube-Videos, Twitter-Embeds etc. müssen geprüft werden
+
+---
+
+## Bild-Probleme
+
+### Bilder werden nicht hochgeladen
+
+<Tabs items={['Berechtigungen', 'Bild nicht erreichbar', 'Bild zu groß']}>
+
+<Tabs.Tab>
+**Symptom:** Bilder werden nur verlinkt, nicht hochgeladen.
+
+**Lösung:**
+1. Prüfe die Shopify-App-Berechtigungen
+2. Aktiviere `read_files` und `write_files`
+3. Installiere die App neu
+4. Aktualisiere den Access Token im Tool
+</Tabs.Tab>
+
+<Tabs.Tab>
+**Symptom:** "Failed to download image" Fehler.
+
+**Lösung:**
+1. Öffne die Bild-URL im Browser
+2. Wenn du das Bild nicht sehen kannst:
+   - Prüfe die WordPress-Medien-Einstellungen
+   - Stelle sicher, dass Bilder öffentlich sind
+   - Prüfe Hotlink-Schutz-Einstellungen
+</Tabs.Tab>
+
+<Tabs.Tab>
+**Symptom:** Große Bilder werden übersprungen.
+
+**Lösung:**
+1. Shopify erlaubt maximal 20 MB pro Bild
+2. Komprimiere große Bilder vor dem Import:
+   - [TinyPNG](https://tinypng.com)
+   - [Squoosh](https://squoosh.app)
+</Tabs.Tab>
+
+</Tabs>
+
+### Beitragsbilder fehlen
+
+**Symptom:** Das Featured Image wird nicht übertragen.
+
+**Mögliche Ursachen:**
+
+1. **Kein Beitragsbild gesetzt**
+   - Prüfe in WordPress, ob ein Beitragsbild zugewiesen ist
+
+2. **Bild nicht eingebettet**
+   - Das Tool benötigt `_embed` Daten von WordPress
+   - Prüfe: `https://deine-seite.de/wp-json/wp/v2/posts?_embed`
+
+---
+
+## Löschen-Probleme
+
+### Artikel können nicht gelöscht werden
+
+**Symptom:** Fehlermeldung beim Löschen.
+
+**Lösungen:**
+
+1. **Rate Limiting**
+   - Warte 1-2 Minuten und versuche es erneut
+   - Lösche in kleineren Gruppen
+
+2. **Berechtigungen**
+   - Prüfe `write_content` Berechtigung
+   - Installiere die App ggf. neu
+
+3. **Artikel existiert nicht mehr**
+   - Lade die Artikelliste neu
+   - Der Artikel wurde möglicherweise bereits gelöscht
+
+---
+
+## Performance-Probleme
+
+### Import ist sehr langsam
+
+**Mögliche Ursachen:**
+
+1. **Viele/große Bilder**
+   - Deaktiviere "Bilder importieren" für einen schnelleren Test
+   - Optimiere Bilder vor dem Import
+
+2. **Langsame Internetverbindung**
+   - Bilder werden herunter- und hochgeladen
+   - Dies benötigt Bandbreite
+
+3. **Rate Limiting**
+   - Shopify begrenzt die Anzahl der Anfragen
+   - Reduziere die Batch-Größe
+
+### Browser wird langsam
+
+**Lösung:**
+1. Importiere in kleineren Gruppen (50-100 Artikel)
+2. Lade die Seite nach jedem Durchgang neu
+3. Schließe andere Browser-Tabs
+
+---
+
+## Browser-Probleme
+
+### Einstellungen werden nicht gespeichert
+
+**Symptom:** Nach dem Neuladen sind alle Einstellungen weg.
+
+**Mögliche Ursachen:**
+
+1. **Privater Modus**
+   - Im privaten/Inkognito-Modus wird localStorage nicht dauerhaft gespeichert
+   - Verwende den normalen Browser-Modus
+
+2. **Browser blockiert localStorage**
+   - Prüfe die Browser-Einstellungen
+   - Erlaube Cookies/Speicher für localhost
+
+3. **Browser-Erweiterungen**
+   - Deaktiviere Erweiterungen wie Privacy Badger, uBlock etc.
+
+---
+
+## Allgemeine Tipps
+
+### Browser-Konsole nutzen
+
+1. Drücke `F12` (oder Rechtsklick → "Untersuchen")
+2. Gehe zum Tab "Konsole"
+3. Suche nach roten Fehlermeldungen
+4. Diese geben oft Hinweise auf das Problem
+
+### Tool neu starten
+
+1. Stoppe das Tool (`Strg+C` im Terminal)
+2. Starte es neu (`npm run dev`)
+3. Lade die Seite im Browser neu (`F5`)
+
+### Cache leeren
+
+1. Drücke `Strg+Shift+R` (Hard Reload)
+2. Oder lösche den Browser-Cache manuell
+
+### Support
+
+Falls nichts hilft:
+1. Prüfe die Browser-Konsole auf Fehlermeldungen
+2. Notiere die genaue Fehlermeldung
+3. Erstelle ein Issue im Repository mit:
+   - Fehlerbeschreibung
+   - Schritte zum Reproduzieren
+   - Fehlermeldungen aus der Konsole
